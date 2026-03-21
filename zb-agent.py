@@ -20,8 +20,14 @@ from pathlib import Path
 from typing import Any
 
 
-# Repo root: tools/zb-agent.py -> parent is tools, grandparent is zb-projects
-ROOT = Path(__file__).resolve().parent.parent
+# zb-projects root: script may live at zb-projects/tools/zb-agent.py or
+# zb-projects/ai-projects/tools/zb-agent.py (nested tools) — always scan the real root.
+_tools_dir = Path(__file__).resolve().parent
+if _tools_dir.name == "tools":
+    _parent = _tools_dir.parent
+    ROOT = _parent.parent if _parent.name == "ai-projects" else _parent
+else:
+    ROOT = _tools_dir.parent
 WORKSPACES_DIR = ROOT / ".zb-workspaces"
 
 
@@ -293,6 +299,7 @@ def _candidates_for_fragment(
 def _category_alias(part: str) -> str | None:
     p = part.strip().lower().rstrip("/")
     aliases = {
+        "ai": "ai-projects",
         "go": "go-projects",
         "js": "javascript-projects",
         "javascript": "javascript-projects",
@@ -300,7 +307,12 @@ def _category_alias(part: str) -> str | None:
     }
     if p in aliases:
         return aliases[p]
-    if p in ("go-projects", "javascript-projects", "python-projects"):
+    if p in (
+        "ai-projects",
+        "go-projects",
+        "javascript-projects",
+        "python-projects",
+    ):
         return p
     return None
 

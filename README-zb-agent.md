@@ -94,7 +94,7 @@ Some folders exist under more than one category (e.g. `graphql-commons` in both 
 ./tools/zb-agent.py javascript/graphql-commons
 ```
 
-Aliases: `python` → `python-projects`, `js` / `javascript` → `javascript-projects`, `go` → `go-projects`.
+Aliases: `python` → `python-projects`, `js` / `javascript` → `javascript-projects`, `go` → `go-projects`, `ai` → `ai-projects`.
 
 ## Non-interactive ambiguity
 
