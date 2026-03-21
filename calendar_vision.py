@@ -1,0 +1,451 @@
+#!/usr/bin/env python3
+"""
+Read calendar events from a screenshot (e.g. Chrome with Google Calendar open).
+
+Default path: **Cursor Agent (vision)** reads the screenshot and returns JSON events, then
+**`format_calendar_meetings.py`** formats the list deterministically (weekday headers,
+` - Title - Nh` lines). **--json** skips formatting on stdout; **--with-times** prints the
+detailed schedule. With no --image/--capture, prompts in the terminal; use --image or --capture on macOS.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import webbrowser
+from collections import defaultdict
+from datetime import date
+from pathlib import Path
+
+from format_calendar_meetings import strip_brackets
+
+ROOT = Path(__file__).resolve().parent
+
+# Shown before interactive capture so the user has the right view in the browser.
+GOOGLE_CALENDAR_URL = "https://calendar.google.com/calendar/u/0/r"
+
+
+def maybe_prompt_and_open_google_calendar(*, skip_prompt: bool) -> None:
+    """
+    Before --capture: ask on the console whether to open Google Calendar in the default
+    browser (typically a new tab). Uses webbrowser.open(..., new=2).
+    """
+    print(
+        "Before capture: Google Calendar should be visible in a browser tab "
+        "(sign in if needed).\n",
+        file=sys.stderr,
+    )
+    if skip_prompt or not sys.stdin.isatty():
+        print(f"  {GOOGLE_CALENDAR_URL}\n", file=sys.stderr)
+        return
+    try:
+        ans = input(
+            "Open Google Calendar in your default browser now (new tab)? [Y/n] ",
+        ).strip().lower()
+    except EOFError:
+        print(f"\n  {GOOGLE_CALENDAR_URL}\n", file=sys.stderr)
+        return
+    if ans in ("", "y", "yes"):
+        webbrowser.open(GOOGLE_CALENDAR_URL, new=2)
+        print(
+            "Opened in your browser. Switch to that tab, then continue here for the screenshot.\n",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"Open the calendar yourself when ready:\n  {GOOGLE_CALENDAR_URL}\n",
+            file=sys.stderr,
+        )
+
+
+CALENDAR_JSON_RULES = """From the screenshot, list every calendar event you can read.
+
+Rules:
+- Include date as date_iso (YYYY-MM-DD). If the view shows a week without a clear year, assume the next occurrence from today's context is fine and set date_iso accordingly; if impossible use null and put the visible day name in day_hint.
+- title: event title/subject.
+- start_time and end_time: strings as shown (e.g. "9:00 AM") or 24h; null if illegible.
+- duration_hours: your best estimate as a number: use 0.25, 0.5, 0.75, 1, 1.5, 2, etc. Prefer stated times; else infer from block height in day/week view.
+- Sort events by date_iso then start_time in your array.
+
+You MUST reply with a single JSON object only (no markdown), schema:
+{"events":[{"date_iso":"YYYY-MM-DD|null","day_hint":string|null,"title":string,"start_time":string|null,"end_time":string|null,"duration_hours":number}],"assumptions":string}
+"""
+
+
+def _load_env_file(path: Path, *, override: bool) -> None:
+    if not path.is_file():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if not key:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        if override:
+            os.environ[key] = value
+        elif key not in os.environ or not str(os.environ.get(key, "")).strip():
+            os.environ[key] = value
+
+
+def load_merged_env() -> None:
+    _load_env_file(ROOT / "local.env", override=False)
+    _load_env_file(ROOT / ".env", override=True)
+
+
+def _capture_macos_interactive(out: Path) -> bool:
+    """Let user pick a window or region; writes PNG."""
+    if sys.platform != "darwin":
+        return False
+    out.parent.mkdir(parents=True, exist_ok=True)
+    r = subprocess.run(
+        ["screencapture", "-ix", str(out)],
+        check=False,
+    )
+    return r.returncode == 0 and out.is_file() and out.stat().st_size > 0
+
+
+def _extract_json_object(text: str) -> dict:
+    text = text.strip()
+    try:
+        v = json.loads(text)
+        if isinstance(v, dict):
+            return v
+    except json.JSONDecodeError:
+        pass
+    m = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if m:
+        try:
+            v = json.loads(m.group(1).strip())
+            if isinstance(v, dict):
+                return v
+        except json.JSONDecodeError:
+            pass
+    start, end = text.find("{"), text.rfind("}")
+    if start >= 0 and end > start:
+        return json.loads(text[start : end + 1])
+    raise ValueError("No JSON object in model output")
+
+
+def _duration_label(hours: float) -> str:
+    if hours <= 0:
+        return "?"
+    q = round(hours * 4) / 4.0
+    if q == int(q):
+        return f"{int(q)}h"
+    s = f"{q:.2f}".rstrip("0").rstrip(".")
+    return f"{s}h"
+
+
+def _sort_key(ev: dict) -> tuple[str, str]:
+    d = str(ev.get("date") or ev.get("date_iso") or "").strip()
+    st = str(ev.get("start_time") or ev.get("start") or "").strip()
+    return (d, st)
+
+
+def _workspace_for_cursor_agent(args_workspace: Path | None) -> Path:
+    if args_workspace is not None:
+        return args_workspace.expanduser().resolve()
+    raw = os.environ.get("CURSOR_AGENT_WORKSPACE", "").strip()
+    if raw:
+        return Path(raw).expanduser().resolve()
+    return ROOT.resolve()
+
+
+def _cache_image_in_workspace(image_path: Path, workspace: Path) -> Path:
+    """Copy screenshot into workspace so Cursor Agent can open it reliably."""
+    cache = workspace / ".calendar_vision_cache"
+    cache.mkdir(parents=True, exist_ok=True)
+    dest = cache / f"calendar_input{image_path.suffix}"
+    shutil.copy2(image_path, dest)
+    return dest.resolve()
+
+
+def _parse_agent_stdout_to_dict(content: str) -> dict:
+    try:
+        return _extract_json_object(content)
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"Could not parse JSON: {e}\n---\n{content[:2000]}", file=sys.stderr)
+        sys.exit(3)
+
+
+def run_calendar_via_cursor_agent(*, image_path: Path, workspace: Path) -> dict:
+    from cursor_agent_runner import run_cursor_agent_task
+
+    cached = _cache_image_in_workspace(image_path, workspace)
+    try:
+        rel = cached.relative_to(workspace.resolve())
+    except ValueError:
+        rel = cached
+    prompt = (
+        "You are Cursor Agent in full agentic mode. Complete everything needed for this task "
+        "(open/read files, inspect the image, reason step-by-step as required).\n\n"
+        "Final deliverable for the parent script: reply with NOTHING except one JSON object "
+        "(no markdown fences, no commentary before or after).\n\n"
+        f"Workspace root: {workspace.resolve()}\n"
+        f"Open and analyze this calendar screenshot (path relative to workspace): {rel}\n\n"
+        + CALENDAR_JSON_RULES
+    )
+    print("Running Cursor Agent (agentic mode; may take a while)…", file=sys.stderr)
+    vision_model = os.environ.get("CURSOR_AGENT_VISION_MODEL", "").strip()
+    out = run_cursor_agent_task(
+        prompt,
+        workspace=workspace,
+        timeout=float(os.environ.get("CURSOR_AGENT_TIMEOUT", "600")),
+        model=vision_model or None,
+    )
+    return _parse_agent_stdout_to_dict(out)
+
+
+def _print_python_formatted_meetings(cleaned: list[dict], parsed: dict) -> None:
+    sys.path.insert(0, str(ROOT))
+    from format_calendar_meetings import format_meetings_markdown, normalize_events_payload
+
+    print(
+        format_meetings_markdown(
+            normalize_events_payload(
+                {"events": cleaned, "assumptions": parsed.get("assumptions")},
+            ),
+        ),
+        end="",
+    )
+
+
+def normalize_events(parsed: dict) -> list[dict]:
+    events = parsed.get("events")
+    if not isinstance(events, list):
+        print("Invalid response: missing events array.", file=sys.stderr)
+        sys.exit(3)
+    cleaned: list[dict] = []
+    for ev in events:
+        if not isinstance(ev, dict):
+            continue
+        title = str(ev.get("title") or "").strip() or "(untitled)"
+        title = strip_brackets(title) or "(untitled)"
+        d_iso = ev.get("date_iso")
+        dh = ev.get("duration_hours")
+        try:
+            dur = float(dh) if dh is not None else 0.0
+        except (TypeError, ValueError):
+            dur = 0.0
+        cleaned.append(
+            {
+                "date_iso": str(d_iso).strip() if d_iso else "",
+                "day_hint": ev.get("day_hint"),
+                "title": title,
+                "start_time": ev.get("start_time"),
+                "end_time": ev.get("end_time"),
+                "duration_hours": dur,
+            }
+        )
+    cleaned.sort(key=_sort_key)
+    return cleaned
+
+
+def print_calendar_output(cleaned: list[dict], parsed: dict, *, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps({"events": cleaned, "assumptions": parsed.get("assumptions")}, indent=2))
+        return
+
+    by_day: dict[str, list[dict]] = defaultdict(list)
+    for ev in cleaned:
+        key = ev["date_iso"] or str(ev.get("day_hint") or "Unknown day")
+        by_day[key].append(ev)
+
+    print("Calendar (from screenshot — verify times; vision may misread small text)\n")
+    assumptions = parsed.get("assumptions")
+    if assumptions:
+        print(f"Notes: {assumptions}\n")
+
+    def _day_sort_key(k: str) -> tuple:
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", k):
+            try:
+                return (0, date.fromisoformat(k).isoformat())
+            except ValueError:
+                pass
+        return (1, k)
+
+    for day_key in sorted(by_day.keys(), key=_day_sort_key):
+        label = day_key
+        if re.match(r"\d{4}-\d{2}-\d{2}", day_key):
+            try:
+                dt = date.fromisoformat(day_key)
+                label = f"{dt:%A} {dt:%Y-%m-%d}"
+            except ValueError:
+                pass
+        print(f"## {label}")
+        for ev in by_day[day_key]:
+            st = ev.get("start_time") or "?"
+            et = ev.get("end_time")
+            span = f"{st}" + (f" – {et}" if et else "")
+            dur = ev.get("duration_hours") or 0
+            dlabel = _duration_label(float(dur)) if dur else "?"
+            print(f"  • [{dlabel}]  {span}  {ev['title']}")
+        print()
+
+
+def _prompt_missing_cli_args(args: argparse.Namespace) -> None:
+    """When neither --image nor --capture was given, ask in the console with defaults."""
+    if args.capture or args.image is not None:
+        return
+    if not sys.stdin.isatty():
+        print(
+            "Specify --image FILE or --capture, or run in a terminal for interactive prompts.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print("calendar_vision: screenshot source not set — choose below (defaults in brackets).\n")
+    try:
+        if sys.platform == "darwin":
+            print(
+                "  If you choose [c], the script will ask to open Google Calendar in the "
+                "browser (new tab) before the screenshot.\n",
+                file=sys.stderr,
+            )
+            choice = input(
+                "  [c] Interactive capture — click window or drag region (default)\n"
+                "  [f] Path to an image file\n"
+                "  Choice [c]: ",
+            ).strip().lower()
+            if choice in ("f", "file", "p", "path"):
+                p = input("  Image file path: ").strip()
+                if not p:
+                    print("No path given.", file=sys.stderr)
+                    sys.exit(1)
+                args.image = Path(p).expanduser()
+                args.capture = False
+            else:
+                args.capture = True
+                args.image = None
+        else:
+            p = input("  Path to screenshot image file (required on this OS): ").strip()
+            if not p:
+                print("No path given.", file=sys.stderr)
+                sys.exit(1)
+            args.image = Path(p).expanduser()
+            args.capture = False
+
+        if not args.json:
+            j = input("  Print JSON only? [y/N]: ").strip().lower()
+            if j in ("y", "yes"):
+                args.json = True
+        else:
+            j = input("  Print JSON only? [Y/n]: ").strip().lower()
+            if j in ("n", "no"):
+                args.json = False
+    except EOFError:
+        print("\nCancelled.", file=sys.stderr)
+        sys.exit(1)
+
+
+def main() -> None:
+    load_merged_env()
+
+    ap = argparse.ArgumentParser(
+        description="Extract calendar events via Cursor Agent (agentic mode; cursor agent --print).",
+    )
+    src = ap.add_mutually_exclusive_group(required=False)
+    src.add_argument("--image", "-i", type=Path, metavar="FILE", help="Screenshot PNG/JPEG/WebP")
+    src.add_argument(
+        "--capture",
+        action="store_true",
+        help="macOS only: interactive screenshot (select Chrome window or region)",
+    )
+    ap.add_argument(
+        "--cursor-workspace",
+        type=Path,
+        metavar="DIR",
+        default=None,
+        help="Workspace for Cursor Agent (default: this tools dir or CURSOR_AGENT_WORKSPACE)",
+    )
+    ap.add_argument("--json", action="store_true", help="Print raw JSON only (skips format step)")
+    ap.add_argument(
+        "--with-times",
+        "-v",
+        action="store_true",
+        help="Print per-day schedule with durations and times instead of the default meeting-title list",
+    )
+    ap.add_argument(
+        "--format-meetings",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    ap.add_argument(
+        "--no-browser-prompt",
+        action="store_true",
+        help="With --capture: do not ask to open Google Calendar; only print the URL on stderr",
+    )
+    ap.add_argument(
+        "--python-format-only",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    args = ap.parse_args()
+
+    _prompt_missing_cli_args(args)
+
+    ws = _workspace_for_cursor_agent(args.cursor_workspace)
+
+    image_path: Path | None = None
+    tmp: tempfile.NamedTemporaryFile | None = None
+    if args.capture:
+        if sys.platform != "darwin":
+            print("--capture is only supported on macOS. Use --image with a file.", file=sys.stderr)
+            sys.exit(1)
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        tmp.close()
+        p = Path(tmp.name)
+        skip_b = bool(args.no_browser_prompt) or os.environ.get(
+            "CALENDAR_VISION_NO_BROWSER_PROMPT", ""
+        ).strip().lower() in ("1", "true", "yes")
+        maybe_prompt_and_open_google_calendar(skip_prompt=skip_b)
+        print("Select the Chrome window or drag a region around the calendar…", file=sys.stderr)
+        if not _capture_macos_interactive(p):
+            p.unlink(missing_ok=True)
+            print("Screenshot cancelled or failed.", file=sys.stderr)
+            sys.exit(1)
+        image_path = p
+    else:
+        if args.image is None:
+            print("No image path (use --image or --capture).", file=sys.stderr)
+            sys.exit(1)
+        image_path = args.image.expanduser()
+
+    if not image_path.is_file():
+        print(f"Image not found: {image_path}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        parsed = run_calendar_via_cursor_agent(image_path=image_path, workspace=ws)
+    except RuntimeError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(2)
+    finally:
+        if tmp:
+            Path(tmp.name).unlink(missing_ok=True)
+
+    cleaned = normalize_events(parsed)
+    # Default: vision → normalize → deterministic format_calendar_meetings.py.
+    # Use --json for raw events; --with-times for the older detailed printout.
+    if args.json:
+        print_calendar_output(cleaned, parsed, as_json=True)
+    elif args.with_times:
+        print_calendar_output(cleaned, parsed, as_json=False)
+    else:
+        _print_python_formatted_meetings(cleaned, parsed)
+
+
+if __name__ == "__main__":
+    main()
