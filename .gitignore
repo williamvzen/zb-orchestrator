@@ -1,0 +1,40 @@
+# Local secrets (use local.env for committed placeholders)
+.env
+
+# Editor — machine-specific (optional: commit launch.json / tasks if shared)
+.vscode/settings.json
+
+# calendar_vision.py cache when using cursor-agent backend
+.calendar_vision_cache/
+
+# --- Compiled / bytecode (Python) ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+
+# --- Packaging & build outputs ---
+build/
+dist/
+*.egg
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+share/python-wheels/
+wheels/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+.env.venv/
+
+# --- Tool caches (often regenerate binary-ish artifacts) ---
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
