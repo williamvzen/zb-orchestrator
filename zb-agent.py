@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-ZB project navigator: reads the zb-projects tree, asks what you want to work on,
-opens one project in Cursor or creates a multi-root workspace for several.
+ZB project navigator: reads the zb-projects tree under ``~/zb-projects``, asks what you
+want to work on, opens one project in Cursor Agent (seed prompt + workspace) or creates
+a multi-root workspace for several. Use --ide-only to open the folder/workspace in the IDE only.
+Use --noops for read-only exploration (documented intent; the flag is a no-op and does not change the seed prompt or env).
+For Jira timesheets use **timesheet-agent** (same directory). The zb-projects root is always
+``~/zb-projects`` for discovery, regardless of where this script lives.
 """
 from __future__ import annotations
 
@@ -19,15 +23,11 @@ from difflib import get_close_matches
 from pathlib import Path
 from typing import Any
 
+from zb_orchestrator_launch import open_in_cursor
 
-# zb-projects root: script may live at zb-projects/tools/zb-agent.py or
-# zb-projects/ai-projects/tools/zb-agent.py (nested tools) — always scan the real root.
-_tools_dir = Path(__file__).resolve().parent
-if _tools_dir.name == "tools":
-    _parent = _tools_dir.parent
-    ROOT = _parent.parent if _parent.name == "ai-projects" else _parent
-else:
-    ROOT = _tools_dir.parent
+
+# zb-projects root: always the user’s ~/zb-projects (not derived from this script’s path).
+ROOT = (Path.home() / "zb-projects").resolve()
 WORKSPACES_DIR = ROOT / ".zb-workspaces"
 
 
@@ -541,19 +541,29 @@ def reason_select_projects(
 
 
 def build_cursor_agent_prompt(
-    ticket: str,
     *,
     intent: str,
+    ticket: str | None = None,
     reasoning: str | None = None,
 ) -> str:
-    lines = [f"Work on Jira ticket {ticket}.", f"Intent: {intent}"]
+    lines: list[str] = []
+    if ticket:
+        lines.append(f"Work on Jira ticket {ticket}.")
+    lines.append(f"Intent: {intent}")
     if reasoning and reasoning.strip():
         lines.append(f"Planning notes: {reasoning.strip()}")
-    lines.append(
-        "Workflow: use Cursor skills when relevant — init-local-ticket-branch "
-        "(branch from main, push, Jira In Progress if applicable) and "
-        "commit-it-then (conventional commits with this ticket in brackets)."
-    )
+    if ticket:
+        lines.append(
+            "Workflow: use Cursor skills when relevant — init-local-ticket-branch "
+            "(branch from main, push, Jira In Progress if applicable) and "
+            "commit-it-then (conventional commits with this ticket in brackets)."
+        )
+    else:
+        lines.append(
+            "Workflow: use Cursor skills when relevant. If this work maps to a Jira ticket, "
+            "use init-local-ticket-branch and commit-it-then with the ticket in brackets; "
+            "otherwise use commit-it-then with [NOTICKET] when committing."
+        )
     return "\n".join(lines)
 
 
@@ -580,36 +590,6 @@ def resolve_ticket_value(
     else:
         t = raw.strip()
     return t if t else None
-
-
-def open_in_cursor(
-    ide_target: Path,
-    *,
-    agent_workspace_dir: Path | None = None,
-    agent_prompt: str | None = None,
-) -> None:
-    cursor = shutil.which("cursor") or shutil.which("cursors")  # rare alias
-    if not cursor:
-        print("Cursor CLI not found on PATH. Install shell command from Cursor:", file=sys.stderr)
-        print('  Command Palette → "Shell Command: Install \'cursor\' command in PATH"', file=sys.stderr)
-        print(f"Or open manually: {ide_target}", file=sys.stderr)
-        return
-
-    if agent_prompt and agent_workspace_dir:
-        r = subprocess.run(
-            [cursor, "agent", "--workspace", str(agent_workspace_dir), agent_prompt],
-            check=False,
-        )
-        if r.returncode != 0:
-            print(
-                "cursor agent failed; opening the IDE only. Paste this into Cursor Agent if needed:",
-                file=sys.stderr,
-            )
-            print(agent_prompt, file=sys.stderr)
-            subprocess.run([cursor, str(ide_target)], check=False)
-        return
-
-    subprocess.run([cursor, str(ide_target)], check=False)
 
 
 def install_zb_agent_command(*, yes: bool) -> int:
@@ -687,6 +667,11 @@ def main() -> None:
     ap.add_argument("--list", action="store_true", help="List discovered projects and exit")
     ap.add_argument("--no-open", action="store_true", help="Do not launch Cursor")
     ap.add_argument(
+        "--ide-only",
+        action="store_true",
+        help="Open folder/workspace with plain `cursor` (no Cursor Agent seed prompt)",
+    )
+    ap.add_argument(
         "-y",
         "--yes",
         action="store_true",
@@ -725,7 +710,18 @@ def main() -> None:
         metavar="KEY",
         help="Jira key (e.g. ECOMM-2384). Omit value to be prompted. Env: ZB_AGENT_TICKET",
     )
+    ap.add_argument(
+        "--noops",
+        action="store_true",
+        help=(
+            "Read-only exploration (documented intent: seed omits branch/commit workflow). "
+            "No-op: does not change the seed prompt or behavior."
+        ),
+    )
     args = ap.parse_args()
+    # --noops / ZB_AGENT_NOOPS: no-ops (do not alter seed prompt, env, or runtime behavior).
+    # Intended read-only workflow is documented in README and rules.
+    _ = args.noops
     if args.ollama:
         os.environ.setdefault("ZB_AGENT_BACKEND", "ollama")
 
@@ -825,10 +821,10 @@ def main() -> None:
 
     ticket = resolve_ticket_value(raw=args.ticket, interactive=interactive)
     agent_prompt: str | None = None
-    if ticket:
+    if not args.ide_only:
         agent_prompt = build_cursor_agent_prompt(
-            ticket,
             intent=intent,
+            ticket=ticket,
             reasoning=reasoning_text,
         )
 

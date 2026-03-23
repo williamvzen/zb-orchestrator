@@ -22,10 +22,16 @@ You’ll be asked whether to add `zb-agent` under `~/.local/bin` (a symlink to t
 
 Ensure `~/.local/bin` is on your `PATH` (many shells include it by default on macOS/Linux).
 
+## timesheet-agent (Jira / generate-timesheet)
+
+Use **`./timesheet-agent.py`** (same directory as `zb-agent.py`) to open **zb-orchestrator** with the **generate-timesheet** Cursor workflow — separate from project navigation. It shares `zb_orchestrator_launch.py` with zb-agent for launching `cursor agent`. See usage examples under [Usage](#usage).
+
+---
+
 Small helper that mirrors `tree -L 2` under `zb-projects`, asks what you want to work on (or accepts names on the CLI), then:
 
-- **One project** — prints the path and opens it in Cursor (`cursor <folder>`), or with **`--ticket`**, starts **Cursor Agent** with an initial prompt that includes the Jira key (`cursor agent --workspace <folder> "<prompt>"`).
-- **Several projects** — writes a multi-root `.code-workspace` under `.zb-workspaces/` and opens that file in Cursor. With **`--ticket`**, Agent uses the **first** resolved project folder (Cursor’s CLI requires a directory, not a `.code-workspace` file); a short note is printed to stderr.
+- **One project** — prints the path and starts **Cursor Agent** with a seed prompt for your intent (`cursor agent --workspace <folder> "<prompt>"`). Use **`--ide-only`** to open the folder with plain `cursor` (no Agent).
+- **Several projects** — writes a multi-root `.code-workspace` under `.zb-workspaces/` and starts Agent the same way, using the **first** resolved project as `--workspace` (Cursor’s CLI requires a directory, not a `.code-workspace` file); a short note is printed to stderr. **`--ide-only`** opens the `.code-workspace` file only.
 
 ## Usage
 
@@ -49,15 +55,31 @@ zb-agent
 
 # Create workspace / print paths without launching Cursor
 ./tools/zb-agent.py --no-open zenapi and zenscripts
+
+# Open in the IDE only (no Cursor Agent seed prompt)
+./tools/zb-agent.py --ide-only zenscripts
+
+# Jira timesheet / weekly report (dedicated script; opens zb-orchestrator)
+./timesheet-agent.py
+./timesheet-agent.py "ECOMM board, last 7 days"
+./timesheet-agent.py --no-open   # print Agent prompt only
 ```
 
 ## Cursor CLI
 
 Install once: **Command Palette → “Shell Command: Install 'cursor' command in PATH”**.
 
-## Jira ticket (`--ticket`)
+## Cursor Agent (default)
 
-Pass a ticket key so zb-agent can seed **Cursor Agent** with a starting prompt (your intent and, with `--reason`, the model’s planning text). This uses the `cursor agent` subcommand, **not** the main IDE Composer — there is no supported `cursor` flag to pre-fill the in-editor chat from the shell.
+Every successful run **starts Cursor Agent** (unless **`--ide-only`** or **`--no-open`**). The seed prompt includes your intent and, with **`--reason`**, the model’s planning text. Pass **`--ticket`** for Jira context and branch/commit workflow, or **`--noops`** for read-only exploration (see below). This uses the `cursor agent` subcommand, **not** the main IDE Composer — there is no supported `cursor` flag to pre-fill the in-editor chat from the shell.
+
+## Jira ticket (`--ticket`) and investigation (`--noops`)
+
+Optional **`--ticket`** adds the Jira key and the branch/commit workflow in the seed prompt (see [Cursor skills](#cursor-skills-branch--commits)).
+
+**`--noops`** switches to read-only exploration: the seed prompt omits **init-local-ticket-branch** and committing. Combine **`--noops --ticket`** when you still want ticket context (e.g. “what does ECOMM-XXXX touch?”) without implying you are starting implementation. Env: **`ZB_AGENT_NOOPS=1`** (same semantics as the flag).
+
+**Flag behavior:** **`--noops`** and **`ZB_AGENT_NOOPS`** are currently **no-ops** — they do not change the seed prompt, exported env, or runtime behavior. The paragraphs above describe the intended investigation workflow for reference.
 
 ```bash
 # Prompt for ticket after choosing work (interactive)
@@ -66,11 +88,16 @@ Pass a ticket key so zb-agent can seed **Cursor Agent** with a starting prompt (
 # Ticket on the command line
 ./tools/zb-agent.py --ticket ECOMM-2384 zenscripts
 
+# Investigation: no branch workflow (optional ticket for context)
+./tools/zb-agent.py --noops zenscripts
+./tools/zb-agent.py --noops --ticket ECOMM-2384 zenapi
+
 # Non-interactive: env or explicit key (do not use bare `--ticket` without a TTY)
 ZB_AGENT_TICKET=ECOMM-2384 ./tools/zb-agent.py -y --no-open zenapi
+ZB_AGENT_NOOPS=1 ZB_AGENT_TICKET=ECOMM-2384 ./tools/zb-agent.py -y --no-open zenapi
 ```
 
-With **`--no-open`**, the script prints the same Agent prompt text instead of launching Cursor.
+With **`--no-open`**, the script prints the Agent prompt text instead of launching Cursor. With **`--ide-only`**, it opens the IDE only and does not run `cursor agent`.
 
 If `cursor agent` fails (e.g. auth), zb-agent falls back to opening the folder or workspace file with `cursor` and prints the prompt on stderr for pasting.
 
@@ -80,10 +107,11 @@ This repo includes a rule ([`.cursor/rules/zb-agent-workflow.mdc`](.cursor/rules
 
 | Skill | When |
 |--------|------|
-| **init-local-ticket-branch** | After opening with `--ticket` — create/push the ticket branch from `main`, naming and Jira steps per the skill. |
+| **init-local-ticket-branch** | When the work has a Jira key (e.g. after opening with **`--ticket`**) and **not** **`--noops`** — create/push the ticket branch from `main`, naming and Jira steps per the skill. |
 | **commit-it-then** | When committing changes — subject format, `[TICKET]` or `[NOTICKET]`, 50-character cap. |
+| **generate-timesheet** | After **`timesheet-agent`**, or when you need a Jira timesheet / status summary — Atlassian MCP + JQL; see [`.cursor/skills/generate-timesheet/SKILL.md`](.cursor/skills/generate-timesheet/SKILL.md). |
 
-The initial Agent prompt from `--ticket` also reminds the model to use these skills. Ensure **init-local-ticket-branch** and **commit-it-then** exist in your Cursor user skills (or equivalent paths) so `/` commands or Skills pick them up.
+The initial Agent prompt reminds the model to use these skills (with ticket-specific wording when **`--ticket`** is set). Ensure **init-local-ticket-branch** and **commit-it-then** exist in your Cursor user skills (or equivalent paths) so `/` commands or Skills pick them up.
 
 ## Duplicate names
 
