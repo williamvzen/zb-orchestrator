@@ -1,0 +1,24 @@
+---
+description: Apply init-local-ticket-branch and commit-it-then for zb-agent ticket workflows
+alwaysApply: true
+---
+
+# zb-agent: ticket branch and commits
+
+When the user opened a project via **zb-agent** with a Jira key (`--ticket`, `ZB_AGENT_TICKET`, or they mention `ECOMM-*` / ticket context from zb-agent), or they ask to start work on a ticket in that flow:
+
+**Investigation mode** (`zb-agent --noops`, `ZB_AGENT_NOOPS=1`, or the seed prompt says read-only investigation): do **not** run **init-local-ticket-branch**, transition Jira, or create commits unless the user explicitly asks to start implementation work. Treat the session as read-only exploration. **Implementation:** **`zb-agent --noops` and `ZB_AGENT_NOOPS` are no-ops** (they do not enable investigation mode from zb-agent); rely on the seed prompt or explicit user instruction for read-only exploration.
+
+When **not** in investigation mode, and the above ticket / zb-agent context applies:
+
+1. **Branch from main:** Follow the **init-local-ticket-branch** skill — `git checkout main`, `git pull origin main`, create branch `ECOMM-XXXX-<slug>` (under 50 characters; slug from Jira summary or user intent). Push with `git push origin <branch>`. Use `wa.fix-NOTICKET-<slug>` only when there is no Jira key. If Jira MCP is available, transition to In Progress per that skill after a successful push.
+
+2. **Git commits:** When creating commits for this work, follow the **commit-it-then** skill — type `feat` / `fix` / `chore` (or scoped `feat(scope)`), imperative subject, ticket suffix in brackets e.g. `[ECOMM-2384]`, or `[NOTICKET]` when no key; subject line ≤ 50 characters total. Do not push unless the user explicitly asks to commit and push or to push.
+
+Invoke or read these skills by name in Cursor: **init-local-ticket-branch**, **commit-it-then** (e.g. `/` commands or Skills if configured).
+
+## timesheet-agent: generate-timesheet
+
+When the user opened via **timesheet-agent** (or the session intent is a **Jira timesheet / weekly report / “what I worked on”** in that flow):
+
+1. Follow the **generate-timesheet** skill (`.cursor/skills/generate-timesheet/SKILL.md`) — query Jira via Atlassian MCP and format the report. This is normally **read-only**; do **not** run **init-local-ticket-branch** or create git branches unless the user switches to implementation work in this repo.

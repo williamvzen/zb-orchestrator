@@ -4,6 +4,9 @@
 # Editor — machine-specific (optional: commit launch.json / tasks if shared)
 .vscode/settings.json
 
+# Cursor MCP — local credentials (do not commit)
+.cursor/mcp.json
+
 # calendar_vision.py cache when using cursor-agent backend
 .calendar_vision_cache/
 
