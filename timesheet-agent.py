@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""
+Jira timesheet helper: opens **ai-projects/zb-orchestrator** in Cursor with a seed prompt
+for the **generate-timesheet** skill (Atlassian MCP). Separate entry point from **zb-agent**
+(project navigation).
+
+Examples:
+  ./timesheet-agent.py
+  ./timesheet-agent.py "ECOMM board, last 7 days"
+  ./timesheet-agent.py --no-open   # print Agent prompt only
+  ./timesheet-agent.py --ide-only  # open folder only (no Agent seed)
+  ./timesheet-agent.py --no-mcp    # omit --approve-mcps on cursor agent (IDE may still use mcp.json)
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+from zb_orchestrator_launch import (
+    ORCHESTRATOR_ROOT,
+    build_timesheet_prompt,
+    open_in_cursor,
+    resolve_orchestrator_workspace,
+)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(
+        description="Open zb-orchestrator with the generate-timesheet Cursor workflow (Jira via MCP).",
+    )
+    ap.add_argument(
+        "intent",
+        nargs="*",
+        help='Optional focus, e.g. "ECOMM last 7 days" or a board name',
+    )
+    ap.add_argument(
+        "--ide-only",
+        action="store_true",
+        help="Open the folder with plain `cursor` (no Cursor Agent seed prompt)",
+    )
+    ap.add_argument(
+        "--no-open",
+        action="store_true",
+        help="Do not launch Cursor; print the Agent prompt to stdout",
+    )
+    ap.add_argument(
+        "--mcp",
+        default="jira",
+        metavar="NAME",
+        help="Enable MCP auto-approval for cursor agent (default: jira; adds --approve-mcps; see .cursor/mcp.json).",
+    )
+    ap.add_argument(
+        "--no-mcp",
+        action="store_true",
+        help="Do not pass --approve-mcps to cursor agent.",
+    )
+    args = ap.parse_args()
+
+    orchestrator = resolve_orchestrator_workspace()
+    if orchestrator is None:
+        print(
+            "generate-timesheet: need zb-orchestrator with "
+            ".cursor/skills/generate-timesheet/SKILL.md — expected at "
+            f"{ORCHESTRATOR_ROOT} or next to timesheet-agent.py.",
+            file=sys.stderr,
+        )
+        sys.exit(7)
+
+    intent_ts = " ".join(args.intent).strip() if args.intent else ""
+    if not intent_ts:
+        intent_ts = (
+            "Generate a timesheet / work summary from my assigned Jira issues "
+            "(default window: last 5 days unless I specify a range, project, or board)."
+        )
+
+    agent_prompt: str | None = None
+    if not args.ide_only:
+        agent_prompt = build_timesheet_prompt(intent=intent_ts)
+
+    print("→ timesheet-agent (generate-timesheet)")
+    print(f"  {orchestrator.resolve()}")
+    if agent_prompt and not args.no_mcp:
+        print(f"  MCP: cursor agent --approve-mcps (server {args.mcp!r} in .cursor/mcp.json) …")
+
+    if args.no_open:
+        if agent_prompt:
+            print()
+            print("Cursor Agent prompt:")
+            print(agent_prompt)
+        return
+
+    mcp_id: str | None = None if args.no_mcp else args.mcp
+    open_in_cursor(
+        orchestrator,
+        agent_workspace_dir=orchestrator if agent_prompt else None,
+        agent_prompt=agent_prompt,
+        mcp=mcp_id,
+    )
+
+
+if __name__ == "__main__":
+    main()
