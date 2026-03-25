@@ -7,7 +7,7 @@
 # Cursor MCP — local credentials (do not commit)
 .cursor/mcp.json
 
-# calendar_vision.py cache when using cursor-agent backend
+# timesheet-agent cache when using cursor-agent backend
 .calendar_vision_cache/
 
 # --- Compiled / bytecode (Python) ---

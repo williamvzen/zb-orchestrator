@@ -1,19 +1,19 @@
 ---
-description: Before calendar screenshot capture, direct the user to open Google Calendar in the browser
+description: Before calendar screenshot capture, direct the user to open Google Calendar in the browser (timesheet-agent)
 globs:
-  - calendar_vision.py
-  - README-calendar-vision.md
+  - timesheet-agent
+  - README-timesheet-agent.md
   - format_calendar_meetings.py
 ---
 
-# Calendar vision: open Calendar before capture
+# Timesheet agent: open Calendar before capture
 
-When helping someone run **`calendar_vision.py`** with **`--capture`** (macOS) or the **screenshot → agent** flow:
+When helping someone run **`timesheet-agent`** with **`--capture`** (macOS) or the **screenshot → agent** flow:
 
 1. **Optional (chat):** Ask whether they want to open Google Calendar in the browser before capture. If **yes**, tell them to run in the terminal:
 
-   `python calendar_vision.py --capture`  
-   (from the `tools/` directory, or `python tools/calendar_vision.py` from the repo root.)
+   `./timesheet-agent --capture`  
+   (from the repo root; ensure the script is executable, or `python3 timesheet-agent --capture`.)
 
 2. At the prompt *Open Google Calendar in your default browser now (new tab)? [Y/n]* they press **Enter** or **y** — the script opens **https://calendar.google.com/calendar/u/0/r** in the default browser (typically a **new tab** via `webbrowser.open(..., new=2)`). If they answer **no**, they open that URL manually.
 

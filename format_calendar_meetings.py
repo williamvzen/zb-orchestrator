@@ -24,7 +24,7 @@ removed; each line is `` - {title} - {formatted duration}`` where duration comes
 - **duration_hours**: number (hours); formatted with `format_duration_hours(ev)` and appended as
   `f"{title} - {…}"` on each bullet line.
 
-Standalone: pipe JSON into stdin or pass a file path. Used by ``calendar_vision.py`` after vision.
+Standalone: pipe JSON into stdin or pass a file path. Used by ``timesheet-agent`` after vision.
 """
 from __future__ import annotations
 
