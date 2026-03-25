@@ -1,9 +1,30 @@
 # Timesheet agent: calendar from screenshot (Cursor Agent)
 
-[`timesheet-agent`](timesheet-agent) runs **one** Cursor Agent step, then **deterministic** formatting:
+[`timesheet-agent`](timesheet-agent) runs **one** Cursor Agent step (calendar vision), then **deterministic** formatting—unless you pass **`--with-jira`**:
 
 1. **Vision** — `cursor agent --print` reads **`.calendar_vision_cache/`** and returns **JSON** events from the screenshot.
 2. **Format** — the script calls [`format_calendar_meetings.py`](format_calendar_meetings.py) on those events (weekday headers, ` - Title - Nh` lines). No second agent.
+
+### Jira + calendar combined (`--with-jira`)
+
+Use the same **Chrome / screenshot** flow as below, then one command runs **two** `cursor agent --print` subprocesses **in parallel**:
+
+- **Jira leg** — same workflow as [`jira-timesheet-agent`](jira-timesheet-agent): [`generate-timesheet`](.cursor/skills/generate-timesheet/SKILL.md) via Atlassian MCP (`--approve-mcps`).
+- **Calendar leg** — vision on the cached screenshot, then formatting.
+
+**Stdout** is two labeled blocks (copy/paste friendly):
+
+---START-OUTPUT-TEXT---
+[JIRA_AGENT_OUTPUT]
+…Jira timesheet text from the agent…
+
+[TIMESHEET-OUTPUT]
+…calendar meetings (default format, or `--json` / `--with-times` shapes)…
+---END-OUTPUT-TEXT---
+
+Optional: **`--jira-intent "ECOMM board, last 7 days"`** to steer the Jira agent; otherwise the default matches the standalone Jira launcher. Env: **`CURSOR_AGENT_JIRA_TIMEOUT`**, **`CURSOR_AGENT_JIRA_MODEL`** (overrides **`CURSOR_AGENT_MODEL`** for the Jira run only; vision still uses **`CURSOR_AGENT_VISION_MODEL`**).
+
+**Note:** Two concurrent `cursor agent` runs may contend on some installs; if one leg fails, retry or run calendar-only and Jira-only separately.
 
 **`--json`** skips step 2 on stdout (raw events). **`--with-times`** prints the verbose per-day schedule instead of the meeting list.
 
@@ -49,6 +70,8 @@ Override workspace on the CLI: **`--cursor-workspace DIR`**.
 ./timesheet-agent --image ~/Desktop/cal.png           # vision agent → Python formatter → stdout
 ./timesheet-agent -i shot.png --json                    # raw events JSON
 ./timesheet-agent -i shot.png --with-times              # per-day times + durations (verbose)
+./timesheet-agent --capture --with-jira                 # parallel Jira MCP + calendar → labeled stdout
+./timesheet-agent -i shot.png --with-jira --jira-intent "ECOMM last 7 days"
 ```
 
 ## Agentic workflow (sequence)

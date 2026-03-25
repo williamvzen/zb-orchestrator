@@ -4,12 +4,18 @@ Jira timesheet helper: opens **ai-projects/zb-orchestrator** in Cursor with a se
 for the **generate-timesheet** skill (Atlassian MCP). Separate entry point from **zb-agent**
 (project navigation).
 
-Examples:
-  ./timesheet-agent.py
-  ./timesheet-agent.py "ECOMM board, last 7 days"
-  ./timesheet-agent.py --no-open   # print Agent prompt only
-  ./timesheet-agent.py --ide-only  # open folder only (no Agent seed)
-  ./timesheet-agent.py --no-mcp    # omit --approve-mcps on cursor agent (IDE may still use mcp.json)
+For **Jira + Google Calendar in one shot** (headless CLI, two agents in parallel), use the
+calendar script instead:
+
+  ./timesheet-agent --capture --with-jira
+  ./timesheet-agent -i cal.png --with-jira --jira-intent "ECOMM last 7 days"
+
+Examples (this launcher — IDE / interactive Agent):
+  ./jira-timesheet-agent
+  ./jira-timesheet-agent "ECOMM board, last 7 days"
+  ./jira-timesheet-agent --no-open   # print Agent prompt only
+  ./jira-timesheet-agent --ide-only  # open folder only (no Agent seed)
+  ./jira-timesheet-agent --no-mcp    # omit --approve-mcps on cursor agent (IDE may still use mcp.json)
 """
 from __future__ import annotations
 
@@ -62,7 +68,7 @@ def main() -> None:
         print(
             "generate-timesheet: need zb-orchestrator with "
             ".cursor/skills/generate-timesheet/SKILL.md — expected at "
-            f"{ORCHESTRATOR_ROOT} or next to timesheet-agent.py.",
+            f"{ORCHESTRATOR_ROOT} or next to jira-timesheet-agent.",
             file=sys.stderr,
         )
         sys.exit(7)

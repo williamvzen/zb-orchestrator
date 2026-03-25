@@ -24,6 +24,7 @@ def run_cursor_agent_task(
     timeout: float = 600.0,
     output_format: str = "text",
     model: str | None = 'auto',
+    approve_mcps: bool = False,
 ) -> str:
     """
     Execute: cursor agent --workspace <dir> --print --output-format <fmt> [ --model <m> ] <prompt>
@@ -31,6 +32,9 @@ def run_cursor_agent_task(
     **Model:** pass ``model=`` or set env **CURSOR_AGENT_MODEL** (e.g. ``auto`` for Auto,
     or ``gpt-5``, ``sonnet-4``, ``sonnet-4-thinking`` per ``cursor agent --help``).
     If unset, Cursor uses its default (which may be a fixed model like Opus in agent mode).
+
+    **MCP:** pass ``approve_mcps=True`` for workflows that need Jira/other MCP tools
+    (equivalent to interactive ``cursor agent --approve-mcps``).
 
     Returns the agent's stdout (the "result" back to your main loop).
     Raises RuntimeError on missing CLI, non-zero exit, or empty output when failed.
@@ -56,6 +60,8 @@ def run_cursor_agent_task(
         "--output-format",
         output_format,
     ]
+    if approve_mcps:
+        cmd.append("--approve-mcps")
     # Headless / scripting: auto-approve tool use when supported (Cursor 2.x+).
     if os.environ.get("CURSOR_AGENT_FORCE", "").strip().lower() in ("1", "true", "yes"):
         cmd.append("--force")

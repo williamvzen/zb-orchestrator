@@ -6,10 +6,14 @@ Default path: **Cursor Agent (vision)** reads the screenshot and returns JSON ev
 **`format_calendar_meetings.py`** formats the list deterministically (weekday headers,
 ` - Title - Nh` lines). **--json** skips formatting on stdout; **--with-times** prints the
 detailed schedule. With no --image/--capture, prompts in the terminal; use --image or --capture on macOS.
+
+**--with-jira** runs the Jira generate-timesheet agent (MCP) in parallel with vision and prints
+``[JIRA_AGENT_OUTPUT]`` + ``[TIMESHEET-OUTPUT]`` on stdout (see README-timesheet-agent.md).
 """
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import re
@@ -19,10 +23,13 @@ import sys
 import tempfile
 import webbrowser
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import redirect_stdout
 from datetime import date
 from pathlib import Path
 
 from format_calendar_meetings import strip_brackets
+from zb_orchestrator_launch import build_timesheet_prompt
 
 ROOT = Path(__file__).resolve().parent
 
@@ -180,6 +187,30 @@ def _parse_agent_stdout_to_dict(content: str) -> dict:
         sys.exit(3)
 
 
+def run_jira_timesheet_via_cursor_agent(*, workspace: Path, intent: str) -> str:
+    """Headless Jira timesheet: same skill as jira-timesheet-agent, via ``cursor agent --print``."""
+    from cursor_agent_runner import run_cursor_agent_task
+
+    prompt = build_timesheet_prompt(intent=intent)
+    jira_model = os.environ.get("CURSOR_AGENT_JIRA_MODEL", "").strip()
+    if not jira_model:
+        jira_model = os.environ.get("CURSOR_AGENT_MODEL", "").strip() or None
+    timeout = float(
+        os.environ.get(
+            "CURSOR_AGENT_JIRA_TIMEOUT",
+            os.environ.get("CURSOR_AGENT_TIMEOUT", "600"),
+        )
+    )
+    print("Running Jira timesheet (Cursor Agent + MCP)…", file=sys.stderr)
+    return run_cursor_agent_task(
+        prompt,
+        workspace=workspace,
+        timeout=timeout,
+        model=jira_model,
+        approve_mcps=True,
+    )
+
+
 def run_calendar_via_cursor_agent(*, image_path: Path, workspace: Path) -> dict:
     from cursor_agent_runner import run_cursor_agent_task
 
@@ -208,18 +239,37 @@ def run_calendar_via_cursor_agent(*, image_path: Path, workspace: Path) -> dict:
     return _parse_agent_stdout_to_dict(out)
 
 
-def _print_python_formatted_meetings(cleaned: list[dict], parsed: dict) -> None:
+def calendar_meetings_markdown(cleaned: list[dict], parsed: dict) -> str:
     sys.path.insert(0, str(ROOT))
     from format_calendar_meetings import format_meetings_markdown, normalize_events_payload
 
-    print(
-        format_meetings_markdown(
-            normalize_events_payload(
-                {"events": cleaned, "assumptions": parsed.get("assumptions")},
-            ),
+    return format_meetings_markdown(
+        normalize_events_payload(
+            {"events": cleaned, "assumptions": parsed.get("assumptions")},
         ),
-        end="",
     )
+
+
+def _print_python_formatted_meetings(cleaned: list[dict], parsed: dict) -> None:
+    print(calendar_meetings_markdown(cleaned, parsed), end="")
+
+
+def calendar_section_string(
+    cleaned: list[dict],
+    parsed: dict,
+    *,
+    as_json: bool,
+    with_times: bool,
+) -> str:
+    """Calendar half of combined output (same shapes as calendar-only stdout)."""
+    if as_json:
+        return json.dumps({"events": cleaned, "assumptions": parsed.get("assumptions")}, indent=2)
+    if with_times:
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            print_calendar_output(cleaned, parsed, as_json=False)
+        return buf.getvalue()
+    return calendar_meetings_markdown(cleaned, parsed)
 
 
 def normalize_events(parsed: dict) -> list[dict]:
@@ -388,6 +438,19 @@ def main() -> None:
         help="With --capture: do not ask to open Google Calendar; only print the URL on stderr",
     )
     ap.add_argument(
+        "--with-jira",
+        action="store_true",
+        help="Run Jira generate-timesheet (MCP) in parallel with calendar vision; "
+        "stdout is [JIRA_AGENT_OUTPUT] then [TIMESHEET-OUTPUT] (see README-timesheet-agent.md).",
+    )
+    ap.add_argument(
+        "--jira-intent",
+        type=str,
+        default="",
+        metavar="TEXT",
+        help="Intent string for the Jira leg (default: assigned issues, last 5 days window).",
+    )
+    ap.add_argument(
         "--python-format-only",
         action="store_true",
         help=argparse.SUPPRESS,
@@ -427,8 +490,34 @@ def main() -> None:
         print(f"Image not found: {image_path}", file=sys.stderr)
         sys.exit(1)
 
+    jira_intent = (args.jira_intent or "").strip()
+    if not jira_intent:
+        jira_intent = (
+            "Generate a timesheet / work summary from my assigned Jira issues "
+            "(default window: last 5 days unless I specify a range, project, or board)."
+        )
+
     try:
-        parsed = run_calendar_via_cursor_agent(image_path=image_path, workspace=ws)
+        if args.with_jira:
+            print(
+                "Running calendar vision + Jira timesheet in parallel (two Cursor Agent runs)…",
+                file=sys.stderr,
+            )
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                jira_f = pool.submit(
+                    run_jira_timesheet_via_cursor_agent,
+                    workspace=ws,
+                    intent=jira_intent,
+                )
+                cal_f = pool.submit(
+                    run_calendar_via_cursor_agent,
+                    image_path=image_path,
+                    workspace=ws,
+                )
+                jira_text = jira_f.result()
+                parsed = cal_f.result()
+        else:
+            parsed = run_calendar_via_cursor_agent(image_path=image_path, workspace=ws)
     except RuntimeError as e:
         print(str(e), file=sys.stderr)
         sys.exit(2)
@@ -439,7 +528,20 @@ def main() -> None:
     cleaned = normalize_events(parsed)
     # Default: vision → normalize → deterministic format_calendar_meetings.py.
     # Use --json for raw events; --with-times for the older detailed printout.
-    if args.json:
+    if args.with_jira:
+        cal_section = calendar_section_string(
+            cleaned,
+            parsed,
+            as_json=args.json,
+            with_times=args.with_times,
+        )
+        print("[JIRA_AGENT_OUTPUT]")
+        print(jira_text.strip())
+        print()
+        print("[TIMESHEET-OUTPUT]")
+        print(cal_section.rstrip())
+        print()
+    elif args.json:
         print_calendar_output(cleaned, parsed, as_json=True)
     elif args.with_times:
         print_calendar_output(cleaned, parsed, as_json=False)

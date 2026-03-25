@@ -15,6 +15,8 @@ When helping someone run **`timesheet-agent`** with **`--capture`** (macOS) or t
    `./timesheet-agent --capture`  
    (from the repo root; ensure the script is executable, or `python3 timesheet-agent --capture`.)
 
+   For **Jira + calendar** in one run, use **`./timesheet-agent --capture --with-jira`** (or **`--image … --with-jira`**). Stdout is **`[JIRA_AGENT_OUTPUT]`** then **`[TIMESHEET-OUTPUT]`** after both Cursor Agent legs finish (they run in parallel).
+
 2. At the prompt *Open Google Calendar in your default browser now (new tab)? [Y/n]* they press **Enter** or **y** — the script opens **https://calendar.google.com/calendar/u/0/r** in the default browser (typically a **new tab** via `webbrowser.open(..., new=2)`). If they answer **no**, they open that URL manually.
 
 3. **Then** they complete the macOS screenshot (window or region) when the tool asks.
