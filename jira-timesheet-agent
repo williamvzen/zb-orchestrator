@@ -7,8 +7,8 @@ for the **generate-timesheet** skill (Atlassian MCP). Separate entry point from 
 For **Jira + Google Calendar in one shot** (headless CLI, two agents in parallel), use the
 calendar script instead:
 
-  ./timesheet-agent --capture --with-jira
-  ./timesheet-agent -i cal.png --with-jira --jira-intent "ECOMM last 7 days"
+  ./timesheet-agent --capture
+  ./timesheet-agent -i cal.png --jira-intent "ECOMM last 7 days"
 
 Examples (this launcher — IDE / interactive Agent):
   ./jira-timesheet-agent

@@ -2,13 +2,12 @@
 """
 Read calendar events from a screenshot (e.g. Chrome with Google Calendar open).
 
-Default path: **Cursor Agent (vision)** reads the screenshot and returns JSON events, then
-**`format_calendar_meetings.py`** formats the list deterministically (weekday headers,
-` - Title - Nh` lines). **--json** skips formatting on stdout; **--with-times** prints the
-detailed schedule. With no --image/--capture, prompts in the terminal; use --image or --capture on macOS.
-
-**--with-jira** runs the Jira generate-timesheet agent (MCP) in parallel with vision and prints
-``[JIRA_AGENT_OUTPUT]`` + ``[TIMESHEET-OUTPUT]`` on stdout (see README-timesheet-agent.md).
+Default path: **Jira generate-timesheet (MCP)** and **Cursor Agent (vision)** run **in parallel**;
+stdout is ``[JIRA_AGENT_OUTPUT]`` then ``[TIMESHEET-OUTPUT]`` (see README-timesheet-agent.md).
+**--no-jira** skips the Jira leg and runs only calendar vision + **`format_calendar_meetings.py`**
+(weekday headers, ` - Title - Nh` lines). **--json** skips formatting on stdout; **--with-times**
+prints the detailed schedule. With no --image/--capture on macOS, defaults to **--capture** (no
+prompts). On other platforms, pass **--image** explicitly.
 """
 from __future__ import annotations
 
@@ -346,58 +345,18 @@ def print_calendar_output(cleaned: list[dict], parsed: dict, *, as_json: bool) -
 
 
 def _prompt_missing_cli_args(args: argparse.Namespace) -> None:
-    """When neither --image nor --capture was given, ask in the console with defaults."""
+    """When neither --image nor --capture was given: default to capture on macOS; else require --image."""
     if args.capture or args.image is not None:
         return
-    if not sys.stdin.isatty():
-        print(
-            "Specify --image FILE or --capture, or run in a terminal for interactive prompts.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    print("calendar_vision: screenshot source not set — choose below (defaults in brackets).\n")
-    try:
-        if sys.platform == "darwin":
-            print(
-                "  If you choose [c], the script will ask to open Google Calendar in the "
-                "browser (new tab) before the screenshot.\n",
-                file=sys.stderr,
-            )
-            choice = input(
-                "  [c] Interactive capture — click window or drag region (default)\n"
-                "  [f] Path to an image file\n"
-                "  Choice [c]: ",
-            ).strip().lower()
-            if choice in ("f", "file", "p", "path"):
-                p = input("  Image file path: ").strip()
-                if not p:
-                    print("No path given.", file=sys.stderr)
-                    sys.exit(1)
-                args.image = Path(p).expanduser()
-                args.capture = False
-            else:
-                args.capture = True
-                args.image = None
-        else:
-            p = input("  Path to screenshot image file (required on this OS): ").strip()
-            if not p:
-                print("No path given.", file=sys.stderr)
-                sys.exit(1)
-            args.image = Path(p).expanduser()
-            args.capture = False
-
-        if not args.json:
-            j = input("  Print JSON only? [y/N]: ").strip().lower()
-            if j in ("y", "yes"):
-                args.json = True
-        else:
-            j = input("  Print JSON only? [Y/n]: ").strip().lower()
-            if j in ("n", "no"):
-                args.json = False
-    except EOFError:
-        print("\nCancelled.", file=sys.stderr)
-        sys.exit(1)
+    if sys.platform == "darwin":
+        args.capture = True
+        args.image = None
+        return
+    print(
+        "timesheet-agent: pass --image FILE, or run on macOS (defaults to --capture when omitted).",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def main() -> None:
@@ -438,10 +397,15 @@ def main() -> None:
         help="With --capture: do not ask to open Google Calendar; only print the URL on stderr",
     )
     ap.add_argument(
+        "--no-jira",
+        action="store_true",
+        help="Skip Jira generate-timesheet; run calendar vision + formatting only "
+        "(no parallel MCP run; stdout is not split into JIRA/TIMESHEET blocks).",
+    )
+    ap.add_argument(
         "--with-jira",
         action="store_true",
-        help="Run Jira generate-timesheet (MCP) in parallel with calendar vision; "
-        "stdout is [JIRA_AGENT_OUTPUT] then [TIMESHEET-OUTPUT] (see README-timesheet-agent.md).",
+        help=argparse.SUPPRESS,
     )
     ap.add_argument(
         "--jira-intent",
@@ -456,6 +420,10 @@ def main() -> None:
         help=argparse.SUPPRESS,
     )
     args = ap.parse_args()
+
+    if args.no_jira and args.with_jira:
+        ap.error("cannot combine --no-jira and --with-jira")
+    with_jira = not args.no_jira
 
     _prompt_missing_cli_args(args)
 
@@ -498,7 +466,7 @@ def main() -> None:
         )
 
     try:
-        if args.with_jira:
+        if with_jira:
             print(
                 "Running calendar vision + Jira timesheet in parallel (two Cursor Agent runs)…",
                 file=sys.stderr,
@@ -528,7 +496,7 @@ def main() -> None:
     cleaned = normalize_events(parsed)
     # Default: vision → normalize → deterministic format_calendar_meetings.py.
     # Use --json for raw events; --with-times for the older detailed printout.
-    if args.with_jira:
+    if with_jira:
         cal_section = calendar_section_string(
             cleaned,
             parsed,

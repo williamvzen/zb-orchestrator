@@ -8,7 +8,7 @@ Personal tooling around **Cursor** and **Jira**: pick projects under `~/zb-proje
 |------|------|
 | [`zb-agent.py`](zb-agent.py) | Interactive navigator over `~/zb-projects`; opens one project or a multi-root workspace in **Cursor Agent** (or IDE only). Optional `--ticket`, `--reason` (OpenAI), `--noops`. |
 | [`jira-timesheet-agent`](jira-timesheet-agent) | Opens this repo in Cursor with a seed for the **generate-timesheet** skill (Atlassian MCP). |
-| [`timesheet-agent`](timesheet-agent) | Headless **calendar vision** (`cursor agent --print`) + deterministic [`format_calendar_meetings.py`](format_calendar_meetings.py). Optional **`--with-jira`** runs Jira + calendar agents in parallel; stdout is `[JIRA_AGENT_OUTPUT]` / `[TIMESHEET-OUTPUT]`. |
+| [`timesheet-agent`](timesheet-agent) | Headless **calendar vision** (`cursor agent --print`) + deterministic [`format_calendar_meetings.py`](format_calendar_meetings.py). **By default** also runs **Jira** generate-timesheet in parallel; stdout is `[JIRA_AGENT_OUTPUT]` / `[TIMESHEET-OUTPUT]`. **`--no-jira`** for calendar-only. |
 | [`cursor_agent_runner.py`](cursor_agent_runner.py) | Subprocess helper for `cursor agent --print` (models, timeouts, `--approve-mcps` for MCP workflows). |
 | [`zb_orchestrator_launch.py`](zb_orchestrator_launch.py) | Resolves the orchestrator workspace, builds timesheet prompts, **`cursor agent`** / `cursor` launch. |
 | [`.cursor/skills/generate-timesheet/SKILL.md`](.cursor/skills/generate-timesheet/SKILL.md) | Jira timesheet workflow (MCP steps, output format). |
@@ -71,12 +71,12 @@ Calendar / Jira flows use the **Cursor** CLI only unless you opt into `--reason`
 
 ### 6. Jira MCP (timesheet from Jira)
 
-For [`jira-timesheet-agent`](jira-timesheet-agent) or **`timesheet-agent --with-jira`**, configure the **Atlassian / Jira** MCP in Cursor and ensure this repo (or your orchestrator checkout) is the **`cursor agent --workspace`** target so [`.cursor/mcp.json`](.cursor/mcp.json) loads.
+For [`jira-timesheet-agent`](jira-timesheet-agent) or **`timesheet-agent`** (default Jira leg), configure the **Atlassian / Jira** MCP in Cursor and ensure this repo (or your orchestrator checkout) is the **`cursor agent --workspace`** target so [`.cursor/mcp.json`](.cursor/mcp.json) loads.
 
 ## Documentation
 
 - **[README-zb-agent.md](README-zb-agent.md)** — `zb-agent` usage, flags, Cursor skills for branches/commits. Examples there may say `./tools/zb-agent.py`; in **this** repo use **`./zb-agent.py`** or the installed **`zb-agent`** command.
-- **[README-timesheet-agent.md](README-timesheet-agent.md)** — Calendar screenshot flow, `--capture`, `--with-jira`, env vars (`CURSOR_AGENT_*`).
+- **[README-timesheet-agent.md](README-timesheet-agent.md)** — Calendar screenshot flow, `--capture`, default Jira + `--no-jira`, env vars (`CURSOR_AGENT_*`).
 
 ## Remote
 
