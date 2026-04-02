@@ -1,0 +1,14 @@
+---
+description: Default to Plan mode for Cursor Agent unless the run is a subagent handoff
+alwaysApply: true
+---
+
+# Agent runs: Plan mode by default
+
+When starting or configuring **Cursor Agent**, **agent**, or similar agent instances for work in this project:
+
+1. **Default to Plan mode** (plan-first: outline steps and constraints before executing tools or making broad changes), unless the user explicitly asks otherwise for that session.
+
+2. **Exception — subagents for orchestration:** If the instance is a **subagent** whose role is to **return structured output to another agent** (e.g., a worker that hands results back to a parent orchestrator), Plan mode is **not** required by default; use the mode that fits the handoff (often a focused execution pass with a clear deliverable back to the caller).
+
+3. If unclear whether a run is a standalone agent session or a subagent handoff, prefer Plan mode until the user clarifies.
