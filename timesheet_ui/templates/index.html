@@ -61,26 +61,10 @@
       font-size: 0.9rem;
       color: var(--text);
     }
-    textarea {
-      width: 100%;
-      min-height: 4.5rem;
-      padding: 0.65rem 0.75rem;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--text);
-      font-size: 0.9rem;
-      resize: vertical;
-      font-family: inherit;
-    }
-    .row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem 1.5rem;
+    .option {
       margin-top: 1rem;
-      align-items: flex-start;
     }
-    .checks label {
+    .option label {
       display: flex;
       align-items: center;
       gap: 0.5rem;
@@ -89,7 +73,7 @@
       cursor: pointer;
       margin: 0;
     }
-    .checks input { accent-color: var(--accent); }
+    .option input { accent-color: var(--accent); }
     button.primary {
       margin-top: 1.25rem;
       padding: 0.65rem 1.25rem;
@@ -191,16 +175,11 @@
       <label for="image">Calendar screenshot</label>
       <input id="image" name="image" type="file" accept="image/*" required />
 
-      <div class="row">
-        <div style="flex: 1; min-width: 220px;">
-          <label for="jira_intent">Jira intent (optional)</label>
-          <textarea id="jira_intent" name="jira_intent" placeholder='e.g. ECOMM board, last 7 days'></textarea>
-        </div>
-        <div class="checks">
-          <label><input type="checkbox" id="with_jira" checked /> Include Jira timesheet (parallel MCP run)</label>
-          <label><input type="checkbox" id="as_json" /> Raw JSON for calendar section</label>
-          <label><input type="checkbox" id="with_times" /> Verbose schedule (–with-times)</label>
-        </div>
+      <div class="option">
+        <label>
+          <input type="checkbox" id="with_jira" checked />
+          Include Jira timesheet (parallel MCP run; default Jira window matches the CLI)
+        </label>
       </div>
 
       <button type="submit" class="primary" id="submit">Run timesheet-agent</button>
@@ -272,8 +251,6 @@
       } else {
         fd.set("no_jira", "1");
       }
-      fd.set("as_json", document.getElementById("as_json").checked ? "1" : "0");
-      fd.set("with_times", document.getElementById("with_times").checked ? "1" : "0");
 
       try {
         const start = await fetch("/api/run", { method: "POST", body: fd });

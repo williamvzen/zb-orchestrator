@@ -1,6 +1,7 @@
 """
-Local-only web UI for ./timesheet-agent: upload a calendar screenshot, set Jira intent,
-run the same CLI in a background thread, poll for completion.
+Local-only web UI for ./timesheet-agent: upload a calendar screenshot, optional --no-jira,
+run the same CLI in a background thread, poll for completion. Uses CLI defaults for Jira
+intent and calendar formatting (no --jira-intent, --json, or --with-times).
 
 Bind: 127.0.0.1 only. No authentication — use on your machine only.
 """
@@ -53,10 +54,7 @@ def _run_job(
     job_id: str,
     image_path: Path,
     *,
-    jira_intent: str,
     no_jira: bool,
-    as_json: bool,
-    with_times: bool,
 ) -> None:
     cmd: list[str] = [
         str(TIMESHEET_SCRIPT),
@@ -68,13 +66,6 @@ def _run_job(
     ]
     if no_jira:
         cmd.append("--no-jira")
-    if as_json:
-        cmd.append("--json")
-    if with_times:
-        cmd.append("--with-times")
-    intent = (jira_intent or "").strip()
-    if intent:
-        cmd.extend(["--jira-intent", intent])
 
     try:
         proc = subprocess.run(
@@ -127,10 +118,7 @@ def api_run() -> Any:
     if "image" not in request.files or not request.files["image"].filename:
         return jsonify({"error": "Missing image file"}), 400
 
-    jira_intent = request.form.get("jira_intent", "") or ""
     no_jira = request.form.get("no_jira") == "1"
-    as_json = request.form.get("as_json") == "1"
-    with_times = request.form.get("with_times") == "1"
 
     f = request.files["image"]
     suffix = Path(f.filename or "shot").suffix.lower()
@@ -154,12 +142,7 @@ def api_run() -> Any:
     thread = threading.Thread(
         target=_run_job,
         args=(job_id, tmp_path),
-        kwargs={
-            "jira_intent": jira_intent,
-            "no_jira": no_jira,
-            "as_json": as_json,
-            "with_times": with_times,
-        },
+        kwargs={"no_jira": no_jira},
         daemon=True,
     )
     thread.start()
