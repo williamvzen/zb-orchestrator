@@ -6,7 +6,7 @@ Personal tooling around **Cursor** and **Jira**: pick projects under `~/zb-proje
 
 | Item | Role |
 |------|------|
-| [`zb-agent.py`](zb-agent.py) | Interactive navigator over `~/zb-projects`; opens one project or a multi-root workspace in **Cursor Agent** (or IDE only). Optional `--ticket`, `--reason` (OpenAI), `--noops`. |
+| [`zb-agent.py`](zb-agent.py) | Interactive navigator over `~/zb-projects`; opens one project or a multi-root workspace in **Cursor Agent** (or IDE only), or **`--cli-only`** for a shell in the repo. Optional `--ticket`, `--reason` (OpenAI), `--noops`. |
 | [`jira-timesheet-agent`](jira-timesheet-agent) | Opens this repo in Cursor with a seed for the **generate-timesheet** skill (Atlassian MCP). |
 | [`timesheet-agent`](timesheet-agent) | Headless **calendar vision** (`cursor agent --print`) + deterministic [`format_calendar_meetings.py`](format_calendar_meetings.py). **By default** also runs **Jira** generate-timesheet in parallel; stdout is `[JIRA_AGENT_OUTPUT]` / `[TIMESHEET-OUTPUT]`. **`--no-jira`** for calendar-only. |
 | [`cursor_agent_runner.py`](cursor_agent_runner.py) | Subprocess helper for `cursor agent --print` (models, timeouts, `--approve-mcps` for MCP workflows). |

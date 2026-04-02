@@ -3,6 +3,7 @@
 ZB project navigator: reads the zb-projects tree under ``~/zb-projects``, asks what you
 want to work on, opens one project in Cursor Agent (seed prompt + workspace) or creates
 a multi-root workspace for several. Use --ide-only to open the folder/workspace in the IDE only.
+Use --cli-only to skip Cursor and start an interactive shell in the chosen repo (or tmux with one pane per repo when multiple).
 Use --noops for read-only exploration (documented intent; the flag is a no-op and does not change the seed prompt or env).
 For Jira timesheets use **timesheet-agent** (same directory). The zb-projects root is always
 ``~/zb-projects`` for discovery, regardless of where this script lives.
@@ -12,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import uuid
 import re
 import shutil
 import subprocess
@@ -21,7 +23,7 @@ import urllib.request
 from dataclasses import dataclass
 from difflib import get_close_matches
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 from zb_orchestrator_launch import open_in_cursor
 
@@ -426,6 +428,75 @@ def resolve_intent(
     return resolved, unresolved
 
 
+def _pick_shell_executable() -> str:
+    """Return a shell path for exec/spawn (prefer $SHELL if it exists)."""
+    s = os.environ.get("SHELL", "").strip()
+    if s and Path(s).is_file():
+        return s
+    for name in ("zsh", "bash", "sh"):
+        p = shutil.which(name)
+        if p:
+            return p
+    return "/bin/sh"
+
+
+def spawn_cli_shell(projects: list[Project]) -> NoReturn:
+    """
+    Drop into a shell with the resolved repo directories.
+
+    One project: chdir there and replace this process with an interactive shell.
+    Several: if ``tmux`` is on PATH, open a new session with one pane per repo
+    (tiled); otherwise chdir to the first repo, set ZB_AGENT_REPOS, and spawn a
+    shell there (other paths are printed).
+    """
+    paths = [p.path.resolve() for p in projects]
+    repos_env = ":".join(str(p) for p in paths)
+    os.environ["ZB_AGENT_REPOS"] = repos_env
+
+    if len(paths) == 1:
+        shell = _pick_shell_executable()
+        base = os.path.basename(shell)
+        try:
+            os.chdir(paths[0])
+        except OSError as e:
+            print(f"Cannot cd to {paths[0]}: {e}", file=sys.stderr)
+            sys.exit(1)
+        os.execl(shell, base, "-i")
+
+    tmux = shutil.which("tmux")
+    if tmux:
+        session = f"zb-agent-{uuid.uuid4().hex[:10]}"
+        cmd: list[str] = [
+            tmux,
+            "new-session",
+            "-c",
+            str(paths[0]),
+            "-s",
+            session,
+        ]
+        for p in paths[1:]:
+            cmd.extend([";", "split-window", "-c", str(p)])
+        cmd.extend([";", "select-layout", "tiled", ";", "attach"])
+        r = subprocess.run(cmd)
+        if r.returncode == 0:
+            sys.exit(0)
+        print("tmux failed; falling back to a single shell.", file=sys.stderr)
+
+    # No tmux or tmux failed: first repo + printed list
+    print("Repositories (ZB_AGENT_REPOS is set):", file=sys.stderr)
+    for p in paths:
+        print(f"  {p}", file=sys.stderr)
+    print(f"Starting shell in: {paths[0]}", file=sys.stderr)
+    shell = _pick_shell_executable()
+    base = os.path.basename(shell)
+    try:
+        os.chdir(paths[0])
+    except OSError as e:
+        print(f"Cannot cd to {paths[0]}: {e}", file=sys.stderr)
+        sys.exit(1)
+    os.execl(shell, base, "-i")
+
+
 def write_workspace(paths: list[Project]) -> Path:
     WORKSPACES_DIR.mkdir(parents=True, exist_ok=True)
     slug = "-".join(p.name for p in paths)
@@ -672,6 +743,11 @@ def main() -> None:
         help="Open folder/workspace with plain `cursor` (no Cursor Agent seed prompt)",
     )
     ap.add_argument(
+        "--cli-only",
+        action="store_true",
+        help="Do not launch Cursor; open a shell in the repo (tmux with one pane per repo if several)",
+    )
+    ap.add_argument(
         "-y",
         "--yes",
         action="store_true",
@@ -818,6 +894,12 @@ def main() -> None:
     if not resolved:
         print("No projects matched.", file=sys.stderr)
         sys.exit(3)
+
+    if args.cli_only:
+        for p in resolved:
+            print(f"→ {p.category}/{p.name}")
+            print(f"  {p.abs_str}")
+        spawn_cli_shell(resolved)
 
     ticket = resolve_ticket_value(raw=args.ticket, interactive=interactive)
     agent_prompt: str | None = None

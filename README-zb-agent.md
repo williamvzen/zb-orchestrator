@@ -59,6 +59,10 @@ zb-agent
 # Open in the IDE only (no Cursor Agent seed prompt)
 ./tools/zb-agent.py --ide-only zenscripts
 
+# Shell only: cd into the repo (no Cursor). Multiple repos → tmux with one pane each if `tmux` is installed; else shell in the first repo and ZB_AGENT_REPOS lists all paths
+./tools/zb-agent.py --cli-only zenscripts
+./tools/zb-agent.py --cli-only zenapi and zenscripts
+
 # Jira timesheet / weekly report (dedicated script; opens zb-orchestrator)
 ./timesheet-agent.py
 ./timesheet-agent.py "ECOMM board, last 7 days"
