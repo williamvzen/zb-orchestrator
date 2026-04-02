@@ -32,6 +32,75 @@ from zb_orchestrator_launch import build_timesheet_prompt
 
 ROOT = Path(__file__).resolve().parent
 
+
+def install_timesheet_agent_command(*, yes: bool) -> int:
+    """
+    Symlink this script to ~/.local/bin/timesheet-agent so it can be run from any directory.
+    Returns a process exit code (0 = ok / skipped, 1 = error).
+    """
+    script = Path(__file__).resolve()
+    local_bin = Path.home() / ".local" / "bin"
+    link = local_bin / "timesheet-agent"
+
+    try:
+        local_bin.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"Cannot create {local_bin}: {e}", file=sys.stderr)
+        return 1
+
+    if link.is_symlink():
+        try:
+            if link.resolve() == script:
+                print(f"Already installed: {link} -> {script}")
+                return 0
+        except OSError:
+            pass
+    elif link.exists():
+        print(
+            f"Refusing to overwrite existing file (not a symlink): {link}",
+            file=sys.stderr,
+        )
+        return 1
+
+    if not yes:
+        if not sys.stdin.isatty():
+            print(
+                "Install needs confirmation: run in a terminal, or use: "
+                f"{sys.argv[0]} --install -y",
+                file=sys.stderr,
+            )
+            return 1
+        try:
+            r = input(
+                "Install `timesheet-agent` as a command?\n"
+                f"  This creates {link} pointing at this script so you can run "
+                "`timesheet-agent` from anywhere. [y/N] "
+            ).strip().lower()
+        except EOFError:
+            r = ""
+        if r not in ("y", "yes"):
+            print("Cancelled.")
+            return 0
+
+    try:
+        if link.is_symlink() or link.exists():
+            link.unlink()
+        link.symlink_to(script)
+    except OSError as e:
+        print(f"Could not create symlink: {e}", file=sys.stderr)
+        print(
+            f"Fallback: alias timesheet-agent='{sys.executable} {script}'",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"Installed: {link} -> {script}")
+    print(
+        'Add ~/.local/bin to PATH if needed, e.g. export PATH="$HOME/.local/bin:$PATH"'
+    )
+    return 0
+
+
 # Shown before interactive capture so the user has the right view in the browser.
 GOOGLE_CALENDAR_URL = "https://calendar.google.com/calendar/u/0/r"
 
@@ -365,6 +434,17 @@ def main() -> None:
     ap = argparse.ArgumentParser(
         description="Extract calendar events via Cursor Agent (agentic mode; cursor agent --print).",
     )
+    ap.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Non-interactive: with --install, skip install confirmation",
+    )
+    ap.add_argument(
+        "--install",
+        action="store_true",
+        help="Install the `timesheet-agent` command in ~/.local/bin (symlink to this script)",
+    )
     src = ap.add_mutually_exclusive_group(required=False)
     src.add_argument("--image", "-i", type=Path, metavar="FILE", help="Screenshot PNG/JPEG/WebP")
     src.add_argument(
@@ -420,6 +500,9 @@ def main() -> None:
         help=argparse.SUPPRESS,
     )
     args = ap.parse_args()
+
+    if args.install:
+        sys.exit(install_timesheet_agent_command(yes=args.yes))
 
     if args.no_jira and args.with_jira:
         ap.error("cannot combine --no-jira and --with-jira")

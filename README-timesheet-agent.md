@@ -59,6 +59,17 @@ If **`auto`** fails with **`--print`** in your Cursor version, try another id fr
 Override workspace on the CLI: **`--cursor-workspace DIR`**.  
 **`--no-browser-prompt`**: same as the env var (non-interactive / CI friendly).
 
+## Install command (optional)
+
+From the repo root, install a **`timesheet-agent`** symlink under `~/.local/bin` pointing at [`timesheet-agent`](timesheet-agent):
+
+```bash
+./timesheet-agent --install
+./timesheet-agent --install -y
+```
+
+After `--install`, ensure `~/.local/bin` is on your `PATH` (same pattern as installing **`zb-agent`**; see [README.md](README.md)).
+
 ## Usage
 
 ```bash
