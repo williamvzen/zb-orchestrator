@@ -59,6 +59,18 @@ If **`auto`** fails with **`--print`** in your Cursor version, try another id fr
 Override workspace on the CLI: **`--cursor-workspace DIR`**.  
 **`--no-browser-prompt`**: same as the env var (non-interactive / CI friendly).
 
+## Web UI (optional)
+
+Local browser UI for the same flow as **`./timesheet-agent -i FILE`**: upload a calendar screenshot, set Jira intent and flags, then run the CLI in the background (polls until Cursor Agent finishes).
+
+1. Install UI dependencies: `pip install -r requirements-timesheet-ui.txt`
+2. From the repo root: **`./timesheet-ui`** (or `python -m timesheet_ui`)
+3. Open the URL printed on stderr (default **http://127.0.0.1:8765/**).
+
+The server binds to **127.0.0.1** only (no auth). Options: **`--port`**, **`TIMESHEET_UI_PORT`**, **`--host`** (avoid exposing on a LAN).
+
+macOS **`screencapture`** is not available in the browser — capture the calendar to a file, then upload it. The UI does not replace **`--capture`**; use the terminal for interactive capture if you prefer.
+
 ## Install command (optional)
 
 From the repo root, install a **`timesheet-agent`** symlink under `~/.local/bin` pointing at [`timesheet-agent`](timesheet-agent):

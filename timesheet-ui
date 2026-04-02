@@ -1,0 +1,15 @@
+#!/usr/bin/env python3
+"""Start the local timesheet-agent web UI (127.0.0.1). See README-timesheet-agent.md."""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from timesheet_ui.app import main  # noqa: E402
+
+if __name__ == "__main__":
+    main()

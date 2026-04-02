@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>timesheet-agent</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4d;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #6cb3f5;
+      --ok: #7dce8c;
+      --err: #f08080;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 3rem;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 0 0 0.35rem;
+      letter-spacing: -0.02em;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    form.card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 0.35rem;
+      color: var(--muted);
+    }
+    input[type="file"] {
+      width: 100%;
+      padding: 0.5rem 0;
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+    textarea {
+      width: 100%;
+      min-height: 4.5rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.9rem;
+      resize: vertical;
+      font-family: inherit;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem 1.5rem;
+      margin-top: 1rem;
+      align-items: flex-start;
+    }
+    .checks label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 400;
+      color: var(--text);
+      cursor: pointer;
+      margin: 0;
+    }
+    .checks input { accent-color: var(--accent); }
+    button.primary {
+      margin-top: 1.25rem;
+      padding: 0.65rem 1.25rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #4a9fe8, #3580c4);
+      color: #fff;
+      cursor: pointer;
+    }
+    button.primary:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .status {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .status.visible { display: block; }
+    .status.running { border-color: #4a7ab0; color: var(--muted); }
+    .status.done { border-color: #3d6b4a; color: var(--ok); }
+    .status.error { border-color: #8b4545; color: var(--err); }
+    .out-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 720px) {
+      .out-grid.two { grid-template-columns: 1fr 1fr; }
+    }
+    .out-panel {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--panel);
+    }
+    .out-panel h2 {
+      margin: 0;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .out-panel pre {
+      margin: 0;
+      padding: 0.85rem 0.75rem;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: min(70vh, 520px);
+      overflow: auto;
+    }
+    button.copy {
+      font-size: 0.7rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    button.copy:hover { color: var(--text); }
+    .stderr {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 8px;
+      border: 1px dashed var(--border);
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>timesheet-agent</h1>
+    <p class="sub">
+      Upload a Google Calendar screenshot, then run the same flow as
+      <code>./timesheet-agent -i …</code> (Cursor Agent: vision + optional Jira MCP). Runs only on your machine; listens on <strong>127.0.0.1</strong>.
+    </p>
+
+    <form class="card" id="form" enctype="multipart/form-data">
+      <label for="image">Calendar screenshot</label>
+      <input id="image" name="image" type="file" accept="image/*" required />
+
+      <div class="row">
+        <div style="flex: 1; min-width: 220px;">
+          <label for="jira_intent">Jira intent (optional)</label>
+          <textarea id="jira_intent" name="jira_intent" placeholder='e.g. ECOMM board, last 7 days'></textarea>
+        </div>
+        <div class="checks">
+          <label><input type="checkbox" id="with_jira" checked /> Include Jira timesheet (parallel MCP run)</label>
+          <label><input type="checkbox" id="as_json" /> Raw JSON for calendar section</label>
+          <label><input type="checkbox" id="with_times" /> Verbose schedule (–with-times)</label>
+        </div>
+      </div>
+
+      <button type="submit" class="primary" id="submit">Run timesheet-agent</button>
+    </form>
+
+    <div id="status" class="status" role="status"></div>
+
+    <div id="results" style="display: none;">
+      <div id="out-grid" class="out-grid"></div>
+      <div id="stderr-wrap" style="display: none;">
+        <div class="stderr" id="stderr"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("form");
+    const statusEl = document.getElementById("status");
+    const results = document.getElementById("results");
+    const outGrid = document.getElementById("out-grid");
+    const stderrWrap = document.getElementById("stderr-wrap");
+    const stderrEl = document.getElementById("stderr");
+    const submitBtn = document.getElementById("submit");
+    const withJira = document.getElementById("with_jira");
+
+    function setStatus(kind, text) {
+      statusEl.className = "status visible " + kind;
+      statusEl.textContent = text;
+    }
+
+    function panel(title, body, id) {
+      const wrap = document.createElement("div");
+      wrap.className = "out-panel";
+      const h = document.createElement("h2");
+      h.textContent = title;
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "copy";
+      copyBtn.textContent = "Copy";
+      copyBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(body || "").catch(() => {});
+      });
+      h.appendChild(copyBtn);
+      wrap.appendChild(h);
+      const pre = document.createElement("pre");
+      pre.id = id || "";
+      pre.textContent = body || "(empty)";
+      wrap.appendChild(pre);
+      return wrap;
+    }
+
+    async function poll(jobId) {
+      const r = await fetch("/api/job/" + encodeURIComponent(jobId));
+      if (!r.ok) throw new Error("Job not found");
+      return r.json();
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      results.style.display = "none";
+      outGrid.innerHTML = "";
+      stderrWrap.style.display = "none";
+      submitBtn.disabled = true;
+      setStatus("running", "Running… This can take several minutes (Cursor Agent + MCP).");
+
+      const fd = new FormData(form);
+      if (withJira.checked) {
+        fd.delete("no_jira");
+      } else {
+        fd.set("no_jira", "1");
+      }
+      fd.set("as_json", document.getElementById("as_json").checked ? "1" : "0");
+      fd.set("with_times", document.getElementById("with_times").checked ? "1" : "0");
+
+      try {
+        const start = await fetch("/api/run", { method: "POST", body: fd });
+        const startData = await start.json();
+        if (!start.ok) {
+          throw new Error(startData.error || start.statusText);
+        }
+        const jobId = startData.job_id;
+
+        let data;
+        for (;;) {
+          await new Promise((r) => setTimeout(r, 1500));
+          data = await poll(jobId);
+          if (data.status !== "running") break;
+        }
+
+        if (data.status === "error" || data.returncode !== 0) {
+          setStatus("error", "Finished with errors (exit " + (data.returncode ?? "?") + ").");
+        } else {
+          setStatus("done", "Done.");
+        }
+
+        outGrid.className = "out-grid";
+        if (data.combined && data.jira_block != null && data.calendar_block != null) {
+          outGrid.classList.add("two");
+          outGrid.appendChild(panel("Jira", data.jira_block, "jira-out"));
+          outGrid.appendChild(panel("Calendar", data.calendar_block, "cal-out"));
+        } else {
+          outGrid.appendChild(panel("Output", data.stdout || "", "full-out"));
+        }
+
+        if (data.stderr && data.stderr.trim()) {
+          stderrEl.textContent = data.stderr;
+          stderrWrap.style.display = "block";
+        }
+        results.style.display = "block";
+      } catch (err) {
+        setStatus("error", String(err.message || err));
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

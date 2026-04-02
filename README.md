@@ -9,6 +9,7 @@ Personal tooling around **Cursor** and **Jira**: pick projects under `~/zb-proje
 | [`zb-agent.py`](zb-agent.py) | Interactive navigator over `~/zb-projects`; opens one project or a multi-root workspace in **Cursor Agent** (or IDE only), or **`--cli-only`** for a shell in the repo. Optional `--ticket`, `--reason` (OpenAI), `--noops`. |
 | [`jira-timesheet-agent`](jira-timesheet-agent) | Opens this repo in Cursor with a seed for the **generate-timesheet** skill (Atlassian MCP). |
 | [`timesheet-agent`](timesheet-agent) | Headless **calendar vision** (`cursor agent --print`) + deterministic [`format_calendar_meetings.py`](format_calendar_meetings.py). **By default** also runs **Jira** generate-timesheet in parallel; stdout is `[JIRA_AGENT_OUTPUT]` / `[TIMESHEET-OUTPUT]`. **`--no-jira`** for calendar-only. |
+| [`timesheet-ui`](timesheet-ui) | Local web UI (Flask) on **127.0.0.1** — upload screenshot + options; runs **`timesheet-agent`** in the background. See [README-timesheet-agent.md](README-timesheet-agent.md#web-ui-optional). |
 | [`cursor_agent_runner.py`](cursor_agent_runner.py) | Subprocess helper for `cursor agent --print` (models, timeouts, `--approve-mcps` for MCP workflows). |
 | [`zb_orchestrator_launch.py`](zb_orchestrator_launch.py) | Resolves the orchestrator workspace, builds timesheet prompts, **`cursor agent`** / `cursor` launch. |
 | [`.cursor/skills/generate-timesheet/SKILL.md`](.cursor/skills/generate-timesheet/SKILL.md) | Jira timesheet workflow (MCP steps, output format). |
