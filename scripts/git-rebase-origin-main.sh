@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 # Stash WIP, fetch main, rebase onto origin/main, restore stash.
+# Usage: git-rebase-origin-main.sh [REPO_DIR]
+# If REPO_DIR is omitted, uses the parent of this script's directory (zb-orchestrator root).
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ $# -ge 1 ]]; then
+  ROOT="$(cd "$1" && pwd)"
+else
+  ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+fi
 cd "$ROOT"
 
 STASH_MSG="cursor: rebase onto origin/main"

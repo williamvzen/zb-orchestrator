@@ -4,6 +4,7 @@ ZB project navigator: reads the zb-projects tree under ``~/zb-projects``, asks w
 want to work on, opens one project in Cursor Agent (seed prompt + workspace) or creates
 a multi-root workspace for several. Use --ide-only to open the folder/workspace in the IDE only.
 Use --cli-only to skip Cursor and start an interactive shell in the chosen repo (or tmux with one pane per repo when multiple).
+Use --rebase-main to stash, fetch origin main, and rebase onto origin/main in the resolved repo(s) (no Cursor).
 Use --noops for read-only exploration (documented intent; the flag is a no-op and does not change the seed prompt or env).
 For Jira timesheets use **timesheet-agent** (same directory). The zb-projects root is always
 ``~/zb-projects`` for discovery, regardless of where this script lives.
@@ -731,6 +732,27 @@ def install_zb_agent_command(*, yes: bool) -> int:
     return 0
 
 
+def git_rebase_origin_main_script() -> Path:
+    """Path to scripts/git-rebase-origin-main.sh next to this module."""
+    return Path(__file__).resolve().parent / "scripts" / "git-rebase-origin-main.sh"
+
+
+def run_git_rebase_origin_main(repo: Path) -> int:
+    """
+    Run the bundled shell helper in ``repo`` (stash → fetch origin main → rebase).
+    Returns the subprocess exit code.
+    """
+    script = git_rebase_origin_main_script()
+    if not script.is_file():
+        print(f"Missing helper script: {script}", file=sys.stderr)
+        return 1
+    r = subprocess.run(
+        ["bash", str(script), str(repo.resolve())],
+        check=False,
+    )
+    return r.returncode
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Navigate zb-projects and open Cursor workspace(s).")
     ap.add_argument("intent", nargs="*", help='e.g. zenscripts or "zenapi and zenscripts"')
@@ -746,6 +768,14 @@ def main() -> None:
         "--cli-only",
         action="store_true",
         help="Do not launch Cursor; open a shell in the repo (tmux with one pane per repo if several)",
+    )
+    ap.add_argument(
+        "--rebase-main",
+        action="store_true",
+        help=(
+            "Stash if needed, fetch origin main, rebase onto origin/main in each resolved repo; "
+            "no Cursor (uses scripts/git-rebase-origin-main.sh). Intent is matched without --reason."
+        ),
     )
     ap.add_argument(
         "-y",
@@ -812,6 +842,34 @@ def main() -> None:
     if args.list:
         for p in sorted(projects, key=lambda x: (x.category, x.name)):
             print(f"{p.category}/{p.name}")
+        return
+
+    if args.rebase_main:
+        rebase_intent: str
+        if args.intent:
+            rebase_intent = " ".join(args.intent)
+        else:
+            print(run_tree(), end="")
+            print()
+            rebase_intent = input(
+                "Which repo(s) to rebase? (project name(s), e.g. zenscripts or zenapi and zenscripts)\n> "
+            ).strip()
+        if not rebase_intent:
+            print("No input.", file=sys.stderr)
+            sys.exit(1)
+        interactive = sys.stdin.isatty() and not args.yes
+        rb_resolved, rb_unresolved = resolve_intent(rebase_intent, projects, interactive=interactive)
+        if rb_unresolved:
+            print("Could not resolve: " + ", ".join(rb_unresolved), file=sys.stderr)
+            sys.exit(2)
+        if not rb_resolved:
+            print("No projects matched.", file=sys.stderr)
+            sys.exit(2)
+        for p in rb_resolved:
+            print(f"Rebasing {p.category}/{p.name} ({p.path}) …", flush=True)
+            rc = run_git_rebase_origin_main(p.path)
+            if rc != 0:
+                sys.exit(rc)
         return
 
     intent: str | None
