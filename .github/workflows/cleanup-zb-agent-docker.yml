@@ -1,0 +1,23 @@
+# Cleans up Docker containers used for zb-agent on the runner (typically a
+# self-hosted machine where agent workloads run in Docker). On GitHub-hosted
+# runners this is usually a no-op.
+name: Cleanup zb-agent Docker
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: List containers only; do not remove
+        type: boolean
+        default: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stop and remove zb-agent containers
+        uses: ./.github/actions/cleanup-zb-agent-docker
+        with:
+          dry-run: ${{ inputs.dry_run }}

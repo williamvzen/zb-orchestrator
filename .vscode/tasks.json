@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Git: rebase onto origin/main (stash → fetch → rebase → pop)",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/git-rebase-origin-main.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      },
+      "group": "none"
+    },
+    {
+      "label": "Docker: cleanup zb-agent containers",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/cleanup-zb-agent-docker.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      },
+      "group": "none"
+    }
+  ]
+}
