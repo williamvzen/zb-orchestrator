@@ -5,11 +5,6 @@ name: Cleanup zb-agent Docker
 
 on:
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: List containers only; do not remove
-        type: boolean
-        default: false
 
 jobs:
   cleanup:
@@ -19,5 +14,3 @@ jobs:
 
       - name: Stop and remove zb-agent containers
         uses: ./.github/actions/cleanup-zb-agent-docker
-        with:
-          dry-run: ${{ inputs.dry_run }}

@@ -67,6 +67,9 @@ zb-agent
 ./timesheet-agent.py
 ./timesheet-agent.py "ECOMM board, last 7 days"
 ./timesheet-agent.py --no-open   # print Agent prompt only
+
+# Docker: stop/remove all running containers — cleanup script (see ./cleanup-zb-agent-docker-agent for Cursor + skill)
+./zb-agent.py --cleanup-zb-agent-docker
 ```
 
 ## Cursor CLI

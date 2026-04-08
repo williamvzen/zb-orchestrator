@@ -1,20 +1,12 @@
 name: Cleanup zb-agent Docker containers
 description: >
-  Stops and removes Docker containers whose name contains zb-agent or that carry
-  label zb-agent=true. Requires actions/checkout of this repository first so
+  Stops and removes all running Docker containers (docker ps -q, docker rm -f).
+  Requires actions/checkout of this repository first so
   scripts/cleanup-zb-agent-docker.sh is available.
-
-inputs:
-  dry-run:
-    description: If true, only list containers that would be removed (sets DRY_RUN=1).
-    required: false
-    default: 'false'
 
 runs:
   using: composite
   steps:
     - name: Cleanup zb-agent containers
       shell: bash
-      env:
-        DRY_RUN: ${{ inputs.dry-run == 'true' && '1' || '0' }}
       run: bash "${GITHUB_WORKSPACE}/scripts/cleanup-zb-agent-docker.sh"

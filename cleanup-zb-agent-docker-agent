@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""
+Open **zb-orchestrator** in Cursor Agent with a seed for the **cleanup-zb-agent-docker** skill.
+
+Runs the same workflow as: ``zb-agent --cleanup-zb-agent-docker``
+
+Example:
+  ./cleanup-zb-agent-docker-agent
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+
+from zb_orchestrator_launch import (
+    CLEANUP_ZB_AGENT_DOCKER_SKILL,
+    ORCHESTRATOR_ROOT,
+    build_cleanup_zb_agent_docker_prompt,
+    open_in_cursor,
+    resolve_orchestrator_workspace,
+)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(
+        description="Cursor Agent workflow: stop/remove all running Docker containers (see scripts/cleanup-zb-agent-docker.sh).",
+    )
+    ap.add_argument(
+        "intent",
+        nargs="*",
+        help="Optional extra context for the Agent seed prompt.",
+    )
+    args = ap.parse_args()
+
+    orchestrator = resolve_orchestrator_workspace(CLEANUP_ZB_AGENT_DOCKER_SKILL)
+    if orchestrator is None:
+        print(
+            "cleanup-zb-agent-docker: need zb-orchestrator with "
+            f"{CLEANUP_ZB_AGENT_DOCKER_SKILL} — expected at {ORCHESTRATOR_ROOT} or next to this script.",
+            file=sys.stderr,
+        )
+        sys.exit(7)
+
+    extra = " ".join(args.intent).strip()
+    agent_prompt = build_cleanup_zb_agent_docker_prompt(intent=extra)
+
+    print("→ cleanup-zb-agent-docker (Cursor Agent)")
+    print(f"  {orchestrator.resolve()}")
+
+    open_in_cursor(
+        orchestrator,
+        agent_workspace_dir=orchestrator,
+        agent_prompt=agent_prompt,
+    )
+
+
+if __name__ == "__main__":
+    main()

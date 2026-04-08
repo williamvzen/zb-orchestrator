@@ -6,8 +6,10 @@ a multi-root workspace for several. Use --ide-only to open the folder/workspace 
 Use --cli-only to skip Cursor and start an interactive shell in the chosen repo (or tmux with one pane per repo when multiple).
 Use --rebase-main to stash, fetch origin main, and rebase onto origin/main in the resolved repo(s) (no Cursor).
 Use --noops for read-only exploration (documented intent; the flag is a no-op and does not change the seed prompt or env).
-For Jira timesheets use **timesheet-agent** (same directory). The zb-projects root is always
-``~/zb-projects`` for discovery, regardless of where this script lives.
+For Jira timesheets use **timesheet-agent** (same directory). For Docker cleanup run
+``--cleanup-zb-agent-docker`` (runs ``scripts/cleanup-zb-agent-docker.sh``, stops all running containers). For the Cursor Agent
+seed workflow only, use **cleanup-zb-agent-docker-agent**.
+The zb-projects root is always ``~/zb-projects`` for discovery, regardless of where this script lives.
 """
 from __future__ import annotations
 
@@ -26,7 +28,12 @@ from difflib import get_close_matches
 from pathlib import Path
 from typing import Any, NoReturn
 
-from zb_orchestrator_launch import open_in_cursor
+from zb_orchestrator_launch import (
+    CLEANUP_ZB_AGENT_DOCKER_SKILL,
+    open_in_cursor,
+    resolve_orchestrator_workspace,
+    run_cleanup_zb_agent_docker_sh,
+)
 
 
 # zb-projects root: always the user’s ~/zb-projects (not derived from this script’s path).
@@ -824,6 +831,15 @@ def main() -> None:
             "No-op: does not change the seed prompt or behavior."
         ),
     )
+    ap.add_argument(
+        "--cleanup-zb-agent-docker",
+        action="store_true",
+        help=(
+            "Run scripts/cleanup-zb-agent-docker.sh in zb-orchestrator (stop/remove all "
+            "running Docker containers). Does not prompt for a project. For Cursor Agent + skill seed, "
+            "use ./cleanup-zb-agent-docker-agent."
+        ),
+    )
     args = ap.parse_args()
     # --noops / ZB_AGENT_NOOPS: no-ops (do not alter seed prompt, env, or runtime behavior).
     # Intended read-only workflow is documented in README and rules.
@@ -833,6 +849,19 @@ def main() -> None:
 
     if args.install:
         sys.exit(install_zb_agent_command(yes=args.yes))
+
+    if args.cleanup_zb_agent_docker:
+        orchestrator = resolve_orchestrator_workspace(CLEANUP_ZB_AGENT_DOCKER_SKILL)
+        if orchestrator is None:
+            print(
+                "cleanup-zb-agent-docker: need zb-orchestrator with "
+                f"{CLEANUP_ZB_AGENT_DOCKER_SKILL} (see cleanup-zb-agent-docker-agent).",
+                file=sys.stderr,
+            )
+            sys.exit(7)
+        print("→ cleanup-zb-agent-docker (zb-orchestrator)", flush=True)
+        print(f"  {orchestrator.resolve()}", flush=True)
+        sys.exit(run_cleanup_zb_agent_docker_sh(orchestrator))
 
     if args.tree:
         print(run_tree(), end="")
