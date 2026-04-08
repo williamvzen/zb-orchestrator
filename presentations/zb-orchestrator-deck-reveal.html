@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>zb-orchestrator — Overview (Reveal.js)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/night.css" id="theme" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css" />
+  <style>
+    :root {
+      --surface: rgba(255, 255, 255, 0.06);
+      --surface-2: rgba(255, 255, 255, 0.09);
+      --text: #e8eaed;
+      --muted: #9aa0a6;
+      --accent: #7cb3ff;
+      --accent-soft: rgba(91, 156, 247, 0.18);
+      --border: rgba(255, 255, 255, 0.14);
+      --code-bg: #1e1f29;
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      --radius: 12px;
+      --font: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+
+    .reveal,
+    .reveal .slides,
+    .reveal .slides section {
+      font-family: var(--font);
+      color: var(--text);
+      text-align: left;
+    }
+
+    .reveal .slides section {
+      padding: 0 1.25rem;
+      box-sizing: border-box;
+    }
+
+    .reveal h1 {
+      font-size: 2.35em;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+    .reveal h2 {
+      font-size: 1.35em;
+      font-weight: 600;
+      margin-bottom: 0.65em;
+      color: #fff;
+    }
+
+    .slide--title {
+      border-left: 6px solid var(--accent);
+      padding-left: 1.25rem;
+    }
+    .slide--title .tagline {
+      font-size: 0.55em;
+      color: var(--muted);
+      font-weight: 400;
+      max-width: 36em;
+      line-height: 1.5;
+    }
+    .slide--title .meta {
+      font-size: 0.4em;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .reveal p, .reveal li {
+      font-size: 0.72em;
+      line-height: 1.55;
+    }
+    .reveal ul, .reveal ol { margin: 0; padding-left: 1.15rem; }
+    .reveal li { margin-bottom: 0.35em; }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      padding: 1rem 1.2rem;
+      margin-top: 0.35em;
+      backdrop-filter: blur(8px);
+    }
+
+    .card--scroll {
+      max-height: 62vh;
+      overflow: auto;
+    }
+
+    .card--accent {
+      background: var(--accent-soft);
+      border-color: rgba(124, 179, 255, 0.35);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.68em;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.45rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.82em;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    /* reveal highlight plugin wraps code */
+    .reveal pre.code-wrap {
+      margin: 0.5em 0 0;
+      width: 100%;
+      box-shadow: none;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .reveal pre.code-wrap code {
+      font-family: var(--mono);
+      font-size: 0.55em;
+      line-height: 1.45;
+      padding: 0.85rem 1rem !important;
+      max-height: 48vh;
+      overflow: auto;
+    }
+
+    .footnote {
+      font-size: 0.62em;
+      color: var(--muted);
+      margin-top: 0.85em;
+      font-style: italic;
+    }
+
+    .arch {
+      display: grid;
+      gap: 0.45rem;
+      margin-top: 0.3rem;
+      font-size: 0.82em;
+    }
+    .arch-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+    }
+    .arch-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.3rem 0.55rem;
+      font-size: 0.9em;
+      font-weight: 500;
+    }
+    .arch-box--accent {
+      border-color: rgba(124, 179, 255, 0.45);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .arch-label {
+      font-size: 0.65em;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .arch-arrow { color: var(--muted); padding: 0 0.15rem; }
+    .arch-orchestrator {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.55rem 0.75rem;
+      background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+      margin-top: 0.2rem;
+    }
+    .arch-orchestrator-title {
+      font-size: 0.68em;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .arch-subagents {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      margin: 0.2rem 0 0 0.35rem;
+      padding-left: 0.55rem;
+      border-left: 3px solid var(--accent);
+    }
+    .arch-subline {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.25rem 0.4rem;
+      font-size: 0.88em;
+      line-height: 1.35;
+    }
+    .arch-box--sub {
+      font-size: 0.82em;
+      padding: 0.2rem 0.45rem;
+      border-style: dashed;
+    }
+    .arch-standalone {
+      margin-top: 0.45rem;
+      padding-top: 0.45rem;
+      border-top: 1px dashed var(--border);
+      font-size: 0.78em;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    /* Layout helpers (Reveal-style stacks) */
+    .zb-cols {
+      display: flex;
+      gap: 1.25rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .zb-cols > .card { flex: 1 1 48%; min-width: 260px; }
+    .zb-tag {
+      display: inline-block;
+      font-size: 0.5em;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 0.35em;
+    }
+
+    aside.notes {
+      display: none;
+    }
+
+    .reveal .controls { color: var(--accent); }
+    .reveal .progress { background: rgba(124, 179, 255, 0.25); }
+    .reveal .slide-number {
+      color: var(--muted);
+      font-size: 0.65em;
+    }
+
+    /* Reveal layout: vertical stack */
+    .reveal .r-stack {
+      display: grid;
+      gap: 0.65rem;
+      justify-items: stretch;
+    }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+      <section data-transition="zoom" data-background-gradient="linear-gradient(145deg, #1a1d24 0%, #0d1117 100%)">
+        <div class="slide--title">
+          <span class="zb-tag fragment fade-in-then-semi-out">Reveal.js · night · transitions</span>
+          <h1>zb-orchestrator</h1>
+          <p class="tagline fragment"><strong>Cursor</strong>, <strong>Jira</strong>, <strong>Google Calendar</strong></p>
+          <p class="meta fragment">Internal overview — structure, tools, impact, demo</p>
+        </div>
+        <aside class="notes">
+          Open with arrow keys; <strong>S</strong> speaker view; <strong>Esc</strong> overview; <strong>F</strong> fullscreen.
+        </aside>
+      </section>
+
+      <section data-transition="slide">
+        <h2>Elevator pitch</h2>
+        <div class="card">
+          <ul>
+            <li class="fragment fade-up"><strong>Navigates</strong> <code>~/zb-projects</code> → seeded Agent prompt (optional <strong>Jira ticket</strong>).</li>
+            <li class="fragment fade-up"><strong>Timesheets</strong> — Jira (MCP) + calendar screenshot (vision).</li>
+            <li class="fragment fade-up"><strong>Skills + Rules</strong> — branch, commit, reporting conventions.</li>
+          </ul>
+          <p class="footnote fragment">Cursor CLI: <code>cursor</code>, <code>cursor agent</code>, Cursor IDE, Cloud Agents — local, not SaaS.</p>
+        </div>
+      </section>
+
+      <section data-transition="convex">
+        <h2>Why this exists</h2>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table>
+            <thead><tr><th>Pain</th><th>What this repo does</th></tr></thead>
+            <tbody>
+              <tr class="fragment"><td>Many repos; choosing the right one</td><td><strong>zb-agent</strong> — fuzzy match, multi-root <code>.code-workspace</code></td></tr>
+              <tr class="fragment"><td>Cold Agent sessions</td><td><strong>Seed prompts</strong> — Intent, Jira key, skills</td></tr>
+              <tr class="fragment"><td>Jira + calendar reporting</td><td><strong>timesheet-agent</strong> — parallel agents</td></tr>
+              <tr class="fragment"><td>Repetitive git/Jira</td><td><strong>Skills + Rules</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section data-transition="fade" data-background-transition="zoom">
+        <h2>Repository map</h2>
+        <pre class="code-wrap"><code class="language-plaintext" data-line-numbers="1-14">zb-orchestrator/
+├── zb-agent.py                 # Navigator → Cursor / shell / rebase
+├── zb_orchestrator_launch.py   # Workspace resolve, timesheet prompt
+├── cursor_agent_runner.py      # cursor agent --print (headless)
+├── timesheet-agent             # Calendar + optional Jira
+├── jira-timesheet-agent        # IDE + Jira timesheet seed
+├── timesheet_ui/               # Flask: upload → timesheet-agent
+├── format_calendar_meetings.py # Format after vision JSON
+├── .cursor/skills/
+├── .cursor/rules/
+├── scripts/
+└── .github/workflows/</code></pre>
+      </section>
+
+      <section data-transition="fade">
+        <h2>Architecture</h2>
+        <div class="card card--scroll">
+          <div class="arch">
+            <div><span class="arch-label">User</span><div class="arch-row"><span class="arch-box">Developer</span></div></div>
+            <div class="arch-row"><span class="arch-arrow">→</span></div>
+            <div><span class="arch-label">Python entrypoints</span>
+              <div class="arch-row" style="margin-bottom:0.45rem">
+                <span class="arch-box arch-box--accent">zb-agent.py</span>
+                <span class="arch-box arch-box--accent">timesheet-agent</span>
+                <span class="arch-box arch-box--accent">jira-timesheet-agent</span>
+              </div>
+              <div class="arch-orchestrator">
+                <div class="arch-orchestrator-title">Inside timesheet-agent (parallel sub-agents)</div>
+                <div class="arch-subagents">
+                  <div class="arch-subline">
+                    <strong>Jira sub-agent</strong>
+                    <span>same skill / prompt as <strong>jira-timesheet-agent</strong></span>
+                    <span style="color:var(--muted);font-size:0.85em">headless <code>cursor agent --print</code> + MCP</span>
+                  </div>
+                  <div class="arch-subline">
+                    <strong>Calendar sub-agent</strong>
+                    <span class="arch-box arch-box--sub">vision</span>
+                    <span style="color:var(--muted);font-size:0.85em">screenshot → JSON</span>
+                  </div>
+                </div>
+                <p class="arch-standalone"><strong>jira-timesheet-agent</strong> (entrypoint): IDE Jira flow. <strong>timesheet-agent</strong>: Jira + calendar; same Jira workflow, no subprocess.</p>
+              </div>
+            </div>
+            <div class="arch-row"><span class="arch-arrow">→</span></div>
+            <div><span class="arch-label">Cursor CLI</span><div class="arch-row">
+              <span class="arch-box">cursor agent</span>
+              <span class="arch-box">cursor &lt;folder&gt;</span>
+              <span class="arch-box">Cursor IDE</span>
+              <span class="arch-box">Cloud Agents</span>
+            </div></div>
+            <div class="arch-row"><span class="arch-arrow">→</span></div>
+            <div><span class="arch-label">Data &amp; integrations</span><div class="arch-row">
+              <span class="arch-box"><code>~/.cursor/</code></span>
+              <span class="arch-box">~/zb-projects</span>
+              <span class="arch-box">Calendar PNG</span>
+              <span class="arch-box arch-box--accent">Jira (MCP)</span>
+              <span class="arch-box arch-box--accent">GitHub (MCP)</span>
+              <span class="arch-box arch-box--accent">Slack (MCP)</span>
+            </div></div>
+          </div>
+          <p style="margin:0.65em 0 0;font-size:0.68em"><strong>Headless path:</strong> two <code>run_cursor_agent_task()</code> calls in parallel → stdout <strong>Jira</strong> + <strong>calendar</strong> blocks.</p>
+        </div>
+        <aside class="notes">
+          Walk through entrypoints, then timesheet-agent sub-agents, then MCP row.
+        </aside>
+      </section>
+
+      <section data-transition="slide">
+        <h2>Tooling stack</h2>
+        <div class="zb-cols">
+          <div class="card" style="padding:0;overflow:hidden; margin-top:0">
+            <table>
+              <thead><tr><th>Layer</th><th>Technologies</th></tr></thead>
+              <tbody>
+                <tr><td>Language</td><td>Python 3</td></tr>
+                <tr><td>Editor automation</td><td>Cursor — Cursor IDE, <code>cursor agent</code>, <code>--print</code>, <code>--approve-mcps</code>, <code>--trust</code>; Cloud Agents</td></tr>
+                <tr><td>Jira</td><td>Atlassian MCP in Cursor</td></tr>
+                <tr><td>Optional routing</td><td>OpenAI or Ollama for <code>zb-agent --reason</code></td></tr>
+                <tr><td>Vision</td><td>Cursor Agent reads cached screenshot in workspace</td></tr>
+                <tr><td>Web UI</td><td>Flask, localhost only</td></tr>
+                <tr><td>CI</td><td>GitHub Actions — workflow_dispatch Docker cleanup</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card card--accent fragment fade-left">
+            <strong style="font-size:0.75em">Layout</strong>
+            <p style="font-size:0.62em;margin:0.5em 0 0;line-height:1.45;color:var(--muted)">This slide uses a flex <strong>two-column</strong> layout beside the table — good for speaker cues or compact callouts.</p>
+          </div>
+        </div>
+      </section>
+
+      <section data-auto-animate>
+        <h2 data-id="feat-title">Feature: zb-agent</h2>
+        <div class="card">
+          <ul>
+            <li>Discovers projects under <code>~/zb-projects</code>.</li>
+            <li>Intent: <strong>fuzzy match</strong> or <code>--reason</code> (LLM picks <code>category/name</code> from catalog).</li>
+            <li><code>--ticket</code> / <code>ZB_AGENT_TICKET</code> injects Jira workflow into the seed.</li>
+            <li><code>--ide-only</code> · <code>--cli-only</code> · <code>--rebase-main</code> · <code>--install</code> → <code>~/.local/bin</code>.</li>
+            <li>Multi-repo: <code>~/.zb-workspaces/&lt;names&gt;.code-workspace</code> — Agent uses <strong>first project</strong>.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section data-auto-animate data-transition="fade">
+        <h2 data-id="feat-title">zb-agent — seed prompt</h2>
+        <div class="card">
+<pre class="code-wrap"><code class="language-python" data-line-numbers="1-15">def build_cursor_agent_prompt(...):
+    if ticket:
+        lines.append(f"Work on Jira ticket {ticket}.")
+    lines.append(f"Intent: {intent}")
+    if ticket:
+        lines.append(
+            "Workflow: ... init-local-ticket-branch ... commit-it-then ..."
+        )
+    else:
+        lines.append(
+            "Workflow: ... Jira ticket → init-local-ticket-branch + commit-it-then; "
+            "else commit-it-then with [NOTICKET]"
+        )
+    return "\n".join(lines)</code></pre>
+        </div>
+      </section>
+
+      <section data-auto-animate>
+        <h2 data-id="feat-title">Feature: timesheet-agent</h2>
+        <div class="card">
+          <ul>
+            <li><strong>Default:</strong> two parallel <code>cursor agent --print</code> runs — Jira MCP + calendar JSON from screenshot.</li>
+            <li>Screenshot cached under <code>.calendar_vision_cache/</code>; strict JSON → Python normalizes → <code>format_calendar_meetings.py</code>.</li>
+            <li>Output markers: <code>[JIRA_AGENT_OUTPUT]</code> and <code>[TIMESHEET-OUTPUT]</code>.</li>
+            <li>Flags: <code>--no-jira</code>, <code>--capture</code> (macOS), <code>--image</code>, <code>--json</code>, <code>--with-times</code>.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section data-auto-animate data-transition="convex">
+        <h2 data-id="code-block">Parallel execution</h2>
+        <div class="card">
+<pre class="code-wrap"><code class="language-python" data-line-numbers="1-6">with ThreadPoolExecutor(max_workers=2) as pool:
+    jira_f = pool.submit(run_jira_timesheet_via_cursor_agent, ...)
+    cal_f = pool.submit(run_calendar_via_cursor_agent, ...)
+    jira_text = jira_f.result()
+    parsed = cal_f.result()</code></pre>
+        </div>
+      </section>
+
+      <section data-auto-animate>
+        <h2 data-id="code-block">cursor_agent_runner</h2>
+        <div class="card">
+<pre class="code-wrap"><code class="language-python" data-line-numbers="1-8">cmd = [cursor, "agent", "--workspace", str(ws),
+       "--print", "--trust", "--output-format", output_format]
+if approve_mcps:
+    cmd.append("--approve-mcps")
+# ... --model, CURSOR_AGENT_EXTRA_ARGS</code></pre>
+        </div>
+      </section>
+
+      <section data-transition="zoom">
+        <h2>Feature: Jira timesheet (Skills)</h2>
+        <div class="card">
+          <ul>
+            <li class="fragment"><strong>jira-timesheet-agent</strong> resolves orchestrator with <code>generate-timesheet/SKILL.md</code>.</li>
+            <li class="fragment"><code>cursor agent --approve-mcps</code> so MCP tools load without repeated approval.</li>
+            <li class="fragment">Skill requires <strong>real tool execution</strong>: cloudId → accountId → JQL → <code>searchJiraIssuesUsingJql</code> → format.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section data-transition="slide">
+        <h2>Feature: timesheet-ui</h2>
+        <div class="r-stack">
+          <div class="card fragment">Flask on <strong>127.0.0.1</strong> — local use only.</div>
+          <div class="card fragment">Upload screenshot; background thread runs <strong>timesheet-agent</strong>.</div>
+          <div class="card fragment">Splits Jira / calendar blocks — ideal for a <strong>live demo</strong>.</div>
+        </div>
+        <p class="footnote fragment">Vertical <code>r-stack</code> layout (Reveal)</p>
+      </section>
+
+      <section>
+        <h2>Governance — Rules &amp; Skills</h2>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table>
+            <thead><tr><th>Artifact</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>zb-agent-workflow.mdc</code></td><td>Ticket vs timesheet flows; branch/commit rules</td></tr>
+              <tr><td><code>agent-plan-mode-default.mdc</code></td><td>Plan-first agent behavior</td></tr>
+              <tr><td>init-local-ticket-branch</td><td>Branch from main, push, Jira In Progress</td></tr>
+              <tr><td>commit-it-then</td><td>Conventional commits, ticket in brackets</td></tr>
+              <tr><td>generate-timesheet</td><td>Jira query + formatted output</td></tr>
+              <tr><td>open-github-pr</td><td>PR workflow via MCP</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="footnote">Turns “how we work” into repeatable Agent behavior.</p>
+      </section>
+
+      <section data-transition="fade">
+        <h2>Automation &amp; CI</h2>
+        <div class="card">
+          <ul>
+            <li><strong>cleanup-zb-agent-docker</strong> — workflow_dispatch</li>
+            <li><strong>git-rebase-origin-main.sh</strong> — <code>--rebase-main</code></li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <h2>Impact</h2>
+        <div class="zb-cols">
+          <div class="card fragment">
+            <strong style="font-size:0.75em">Outcomes</strong>
+            <ul style="font-size:0.68em;margin-top:0.5em">
+              <li><strong>Faster context switching</strong> — one command → repo + seeded Agent.</li>
+              <li><strong>Less copy-paste</strong> — skill-driven Jira steps.</li>
+              <li><strong>Richer weekly reports</strong> — Jira + calendar in one run.</li>
+            </ul>
+          </div>
+          <div class="card fragment">
+            <strong style="font-size:0.75em">More</strong>
+            <ul style="font-size:0.68em;margin-top:0.5em">
+              <li><strong>Consistent git hygiene</strong> via Skills.</li>
+              <li><strong>Extensible</strong> — same pattern for <code>run_cursor_agent_task()</code>.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section data-transition="convex">
+        <h2>Possibilities unlocked</h2>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table>
+            <thead><tr><th>Idea</th><th>How the repo supports it</th></tr></thead>
+            <tbody>
+              <tr><td>Slack / email digest</td><td>Parse marker blocks → webhook</td></tr>
+              <tr><td>Scheduled runs</td><td>Cron + headless timesheet-agent</td></tr>
+              <tr><td>Stronger calendar</td><td>Tune CALENDAR_JSON_RULES or vision model env</td></tr>
+              <tr><td>More MCPs</td><td>Same <code>--approve-mcps</code> pattern; <code>.cursor/mcp.json</code></td></tr>
+              <tr><td>Team rollout</td><td>Share Skills/Rules + <code>~/zb-projects</code> layout</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Demo script (5–10 min)</h2>
+        <div class="card">
+          <ol style="margin:0;padding-left:1.1rem;line-height:1.55;font-size:0.68em">
+            <li class="fragment"><strong>zb-agent:</strong> <code>./zb-agent.py --list</code> → open project → show Intent in Agent.</li>
+            <li class="fragment"><strong>Ticket:</strong> <code>./zb-agent.py … --ticket ECOMM-XXXX --no-open</code> → show seed.</li>
+            <li class="fragment"><strong>timesheet:</strong> <code>./timesheet-agent -i cal.png --no-jira</code> (or full parallel with MCP).</li>
+            <li class="fragment"><strong>Optional:</strong> timesheet-ui upload.</li>
+            <li class="fragment"><strong>Close:</strong> generate-timesheet SKILL — agent must call tools.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section data-transition="zoom" data-background-gradient="linear-gradient(160deg, #12151c 0%, #1a1f2e 100%)">
+        <h2>Closing</h2>
+        <div class="card">
+          <p style="margin:0;font-size:0.78em;line-height:1.55"><strong>zb-orchestrator</strong> treats Cursor as the <strong>automation engine</strong>: Python orchestrates <em>when</em> and <em>where</em> agents run; Skills and Rules define <em>how</em> — yielding <strong>repeatable</strong>, <strong>auditable</strong> workflows from a <strong>small local codebase</strong>.</p>
+          <p class="footnote">Full detail: <code>zb-orchestrator-presentation.md</code> in repo root.</p>
+        </div>
+        <aside class="notes">
+          Thanks — Q&amp;A. Toggle <strong>?</strong> for shortcuts help in Reveal.
+        </aside>
+      </section>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      history: true,
+      slideNumber: 'c/t',
+      width: 1280,
+      height: 720,
+      margin: 0.07,
+      minScale: 0.35,
+      maxScale: 1.45,
+      transition: 'slide',
+      backgroundTransition: 'fade',
+      navigationMode: 'default',
+      keyboard: true,
+      overview: true,
+      center: false,
+      controls: true,
+      progress: true,
+      autoAnimate: true,
+      autoAnimateEasing: 'ease-out',
+      autoAnimateDuration: 0.85,
+      autoSlide: 0,
+      plugins: [ RevealHighlight, RevealNotes ],
+    });
+  </script>
+</body>
+</html>
