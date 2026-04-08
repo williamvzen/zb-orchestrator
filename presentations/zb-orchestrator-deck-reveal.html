@@ -133,6 +133,22 @@
       max-height: 48vh;
       overflow: auto;
     }
+    .reveal pre.code-wrap--repo-map code {
+      font-size: 1.05em;
+      line-height: 1.38;
+    }
+    .reveal pre.code-wrap--seed code {
+      font-size: 1.05em;
+      line-height: 1.4;
+    }
+    .reveal pre.code-wrap--parallel code {
+      font-size: 1.05em;
+      line-height: 1.4;
+    }
+    .reveal pre.code-wrap--runner code {
+      font-size: 1.05em;
+      line-height: 1.4;
+    }
 
     .footnote {
       font-size: 0.62em;
@@ -228,15 +244,6 @@
       justify-content: space-between;
     }
     .zb-cols > .card { flex: 1 1 48%; min-width: 260px; }
-    .zb-tag {
-      display: inline-block;
-      font-size: 0.5em;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--accent);
-      margin-bottom: 0.35em;
-    }
 
     aside.notes {
       display: none;
@@ -255,6 +262,22 @@
       gap: 0.65rem;
       justify-items: stretch;
     }
+
+    /* timesheet-ui: three stacked cards share one width */
+    .reveal .timesheet-ui-wrap {
+      width: min(100%, 38em);
+      margin: 0 auto;
+    }
+    .reveal .timesheet-ui-wrap .r-stack {
+      width: 100%;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .reveal .timesheet-ui-wrap .r-stack > .card {
+      width: 100%;
+      max-width: none;
+      box-sizing: border-box;
+      justify-self: stretch;
+    }
   </style>
 </head>
 <body>
@@ -263,10 +286,9 @@
 
       <section data-transition="zoom" data-background-gradient="linear-gradient(145deg, #1a1d24 0%, #0d1117 100%)">
         <div class="slide--title">
-          <span class="zb-tag fragment fade-in-then-semi-out">Reveal.js · night · transitions</span>
           <h1>zb-orchestrator</h1>
-          <p class="tagline fragment"><strong>Cursor</strong>, <strong>Jira</strong>, <strong>Google Calendar</strong></p>
-          <p class="meta fragment">Internal overview — structure, tools, impact, demo</p>
+          <p class="tagline fragment"><strong>Cursor</strong>, <strong>Jira</strong>, <strong>Google Calendar</strong>, <strong>Slack (MCP)</strong>, <strong>GitHub</strong>, <strong>automations</strong></p>
+          <p class="meta fragment">Internal overview — structure, tools, orchestration &amp; demo</p>
         </div>
         <aside class="notes">
           Open with arrow keys; <strong>S</strong> speaker view; <strong>Esc</strong> overview; <strong>F</strong> fullscreen.
@@ -274,7 +296,7 @@
       </section>
 
       <section data-transition="slide">
-        <h2>Elevator pitch</h2>
+        <h2>Overview</h2>
         <div class="card">
           <ul>
             <li class="fragment fade-up"><strong>Navigates</strong> <code>~/zb-projects</code> → seeded Agent prompt (optional <strong>Jira ticket</strong>).</li>
@@ -302,7 +324,7 @@
 
       <section data-transition="fade" data-background-transition="zoom">
         <h2>Repository map</h2>
-        <pre class="code-wrap"><code class="language-plaintext" data-line-numbers="1-14">zb-orchestrator/
+        <pre class="code-wrap code-wrap--repo-map"><code class="language-plaintext" data-line-numbers="1-14">zb-orchestrator/
 ├── zb-agent.py                 # Navigator → Cursor / shell / rebase
 ├── zb_orchestrator_launch.py   # Workspace resolve, timesheet prompt
 ├── cursor_agent_runner.py      # cursor agent --print (headless)
@@ -371,25 +393,19 @@
 
       <section data-transition="slide">
         <h2>Tooling stack</h2>
-        <div class="zb-cols">
-          <div class="card" style="padding:0;overflow:hidden; margin-top:0">
-            <table>
-              <thead><tr><th>Layer</th><th>Technologies</th></tr></thead>
-              <tbody>
-                <tr><td>Language</td><td>Python 3</td></tr>
-                <tr><td>Editor automation</td><td>Cursor — Cursor IDE, <code>cursor agent</code>, <code>--print</code>, <code>--approve-mcps</code>, <code>--trust</code>; Cloud Agents</td></tr>
-                <tr><td>Jira</td><td>Atlassian MCP in Cursor</td></tr>
-                <tr><td>Optional routing</td><td>OpenAI or Ollama for <code>zb-agent --reason</code></td></tr>
-                <tr><td>Vision</td><td>Cursor Agent reads cached screenshot in workspace</td></tr>
-                <tr><td>Web UI</td><td>Flask, localhost only</td></tr>
-                <tr><td>CI</td><td>GitHub Actions — workflow_dispatch Docker cleanup</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="card card--accent fragment fade-left">
-            <strong style="font-size:0.75em">Layout</strong>
-            <p style="font-size:0.62em;margin:0.5em 0 0;line-height:1.45;color:var(--muted)">This slide uses a flex <strong>two-column</strong> layout beside the table — good for speaker cues or compact callouts.</p>
-          </div>
+        <div class="card" style="padding:0;overflow:hidden; margin-top:0">
+          <table>
+            <thead><tr><th>Layer</th><th>Technologies</th></tr></thead>
+            <tbody>
+              <tr><td>Language</td><td>Python 3</td></tr>
+              <tr><td>Editor automation</td><td>Cursor — Cursor IDE, <code>cursor agent</code>, <code>--print</code>, <code>--approve-mcps</code>, <code>--trust</code>; Cloud Agents</td></tr>
+              <tr><td>Jira</td><td>Atlassian MCP in Cursor</td></tr>
+              <tr><td>Optional routing</td><td>OpenAI or Ollama for <code>zb-agent --reason</code></td></tr>
+              <tr><td>Vision</td><td>Cursor Agent reads cached screenshot in workspace</td></tr>
+              <tr><td>Web UI</td><td>Flask, localhost only</td></tr>
+              <tr><td>CI</td><td>GitHub Actions — workflow_dispatch Docker cleanup</td></tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -409,7 +425,7 @@
       <section data-auto-animate data-transition="fade">
         <h2 data-id="feat-title">zb-agent — seed prompt</h2>
         <div class="card">
-<pre class="code-wrap"><code class="language-python" data-line-numbers="1-15">def build_cursor_agent_prompt(...):
+<pre class="code-wrap code-wrap--seed"><code class="language-python" data-line-numbers="1-15">def build_cursor_agent_prompt(...):
     if ticket:
         lines.append(f"Work on Jira ticket {ticket}.")
     lines.append(f"Intent: {intent}")
@@ -441,7 +457,7 @@
       <section data-auto-animate data-transition="convex">
         <h2 data-id="code-block">Parallel execution</h2>
         <div class="card">
-<pre class="code-wrap"><code class="language-python" data-line-numbers="1-6">with ThreadPoolExecutor(max_workers=2) as pool:
+<pre class="code-wrap code-wrap--parallel"><code class="language-python" data-line-numbers="1-6">with ThreadPoolExecutor(max_workers=2) as pool:
     jira_f = pool.submit(run_jira_timesheet_via_cursor_agent, ...)
     cal_f = pool.submit(run_calendar_via_cursor_agent, ...)
     jira_text = jira_f.result()
@@ -452,7 +468,7 @@
       <section data-auto-animate>
         <h2 data-id="code-block">cursor_agent_runner</h2>
         <div class="card">
-<pre class="code-wrap"><code class="language-python" data-line-numbers="1-8">cmd = [cursor, "agent", "--workspace", str(ws),
+<pre class="code-wrap code-wrap--runner"><code class="language-python" data-line-numbers="1-8">cmd = [cursor, "agent", "--workspace", str(ws),
        "--print", "--trust", "--output-format", output_format]
 if approve_mcps:
     cmd.append("--approve-mcps")
@@ -473,10 +489,12 @@ if approve_mcps:
 
       <section data-transition="slide">
         <h2>Feature: timesheet-ui</h2>
-        <div class="r-stack">
-          <div class="card fragment">Flask on <strong>127.0.0.1</strong> — local use only.</div>
-          <div class="card fragment">Upload screenshot; background thread runs <strong>timesheet-agent</strong>.</div>
-          <div class="card fragment">Splits Jira / calendar blocks — ideal for a <strong>live demo</strong>.</div>
+        <div class="timesheet-ui-wrap">
+          <div class="r-stack">
+            <div class="card fragment">Flask on <strong>127.0.0.1</strong> — local use only.</div>
+            <div class="card fragment">Upload screenshot; background thread runs <strong>timesheet-agent</strong>.</div>
+            <div class="card fragment">Splits Jira / calendar blocks — ideal for a <strong>live demo</strong>.</div>
+          </div>
         </div>
         <p class="footnote fragment">Vertical <code>r-stack</code> layout (Reveal)</p>
       </section>
