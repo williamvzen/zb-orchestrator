@@ -1,0 +1,9 @@
+{
+  "name": "zb-orchestrator",
+  "private": true,
+  "description": "Dependencies for zb-agent --prlink (Cursor Cloud Agents via @cursor/sdk)",
+  "type": "module",
+  "dependencies": {
+    "@cursor/sdk": "^1.0.12"
+  }
+}

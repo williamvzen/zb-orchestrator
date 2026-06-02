@@ -7,6 +7,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 # Standard layout under the user’s zb-projects checkout.
@@ -15,6 +16,7 @@ ORCHESTRATOR_ROOT = ROOT / "ai-projects" / "zb-orchestrator"
 
 # Relative to repo root — used with ``resolve_orchestrator_workspace(...)``.
 CLEANUP_ZB_AGENT_DOCKER_SKILL = ".cursor/skills/cleanup-zb-agent-docker/SKILL.md"
+ZENAPI_PR_DEPENDENCY_SAFETY_SKILL = ".cursor/skills/zenapi-pr-dependency-safety/SKILL.md"
 
 
 def resolve_orchestrator_workspace(
@@ -79,6 +81,105 @@ def run_cleanup_zb_agent_docker_sh(
         return 6
     r = subprocess.run(["bash", str(script)], cwd=str(root), check=False)
     return int(r.returncode)
+
+
+def build_zenapi_pr_dependency_safety_prompt(
+    *,
+    pr_url: str,
+    embedded_skill_markdown: str | None = None,
+) -> str:
+    """Seed prompt for Cursor Agent: zenapi PR merge-safety via ``zenapi-pr-dependency-safety`` skill."""
+    if embedded_skill_markdown is not None:
+        return "\n".join(
+            [
+                f"Pull request: {pr_url}",
+                "",
+                "You are on **Cursor Cloud**: the PR’s GitHub repository is cloned at the PR head ref. "
+                "Use this workspace for reads, diffs, and repo search — same role as the skill’s "
+                "“local zenapi clone”. Do not merge, push, or run pip/poetry/pnpm installs to change "
+                'dependencies; analysis and a written verdict only — no installs to "fix" the PR.',
+                "",
+                "Execute step by step with real tool calls when available (GitHub tools/MCP as configured "
+                "for cloud). Do not answer with only a hypothetical checklist.",
+                "",
+                "--- zenapi-pr-dependency-safety skill (follow this workflow) ---",
+                embedded_skill_markdown.strip(),
+            ]
+        )
+    return "\n".join(
+        [
+            f"Pull request: {pr_url}",
+            "",
+            "Follow `.cursor/skills/zenapi-pr-dependency-safety/SKILL.md` — especially **Preconditions** "
+            "and the workflow checklist.",
+            "",
+            "Execute the workflow step by step with real tool calls when available: parse the PR URL, "
+            "fetch PR metadata and files (GitHub MCP or `gh` CLI), use a **local zenapi clone** when the "
+            "skill requires checkout and repo search, and produce the checklist and verdict from the skill. "
+            'Do not merge, push, or run installs to "fix" the PR.',
+            "",
+            "Do not answer with only a summary of the skill or hypothetical steps. Use each tool’s output "
+            "in the next step.",
+            "",
+            "This session is read-only for merge-safety analysis: do not run **init-local-ticket-branch** "
+            "or create git branches in this orchestrator repo unless the user explicitly asks to change it.",
+        ]
+    )
+
+
+def run_cloud_pr_link_review(
+    *,
+    prompt: str,
+    repo_git_url: str,
+    starting_ref: str,
+    orchestrator_root: Path,
+) -> int:
+    """
+    Run ``Agent.prompt`` on Cursor Cloud via ``scripts/run-cloud-prlink.mjs`` (requires ``npm install``).
+    Returns the Node process exit code.
+    """
+    script = orchestrator_root / "scripts" / "run-cloud-prlink.mjs"
+    node = shutil.which("node")
+    if not node:
+        print(
+            "zb-agent: Node.js is required for cloud PR review (install node, or use --local).",
+            file=sys.stderr,
+        )
+        return 6
+    if not script.is_file():
+        print(f"zb-agent: missing cloud runner script {script}", file=sys.stderr)
+        return 6
+    sdk_pkg = orchestrator_root / "node_modules" / "@cursor" / "sdk"
+    if not sdk_pkg.is_dir():
+        print(
+            "zb-agent: run once in zb-orchestrator: npm install\n"
+            f"  cd {orchestrator_root}",
+            file=sys.stderr,
+        )
+        return 6
+
+    tmp_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            prefix="zb-agent-prlink-",
+            suffix=".txt",
+            delete=False,
+        ) as tf:
+            tf.write(prompt)
+            tmp_path = tf.name
+        r = subprocess.run(
+            [node, str(script), repo_git_url, starting_ref, tmp_path],
+            cwd=str(orchestrator_root.resolve()),
+        )
+        return int(r.returncode)
+    finally:
+        if tmp_path:
+            try:
+                Path(tmp_path).unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def build_timesheet_prompt(*, intent: str) -> str:

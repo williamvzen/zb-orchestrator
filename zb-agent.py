@@ -8,7 +8,10 @@ Use --rebase-main to stash, fetch origin main, and rebase onto origin/main in th
 Use --noops for read-only exploration (documented intent; the flag is a no-op and does not change the seed prompt or env).
 For Jira timesheets use **timesheet-agent** (same directory). For Docker cleanup run
 ``--cleanup-zb-agent-docker`` (runs ``scripts/cleanup-zb-agent-docker.sh``, stops all running containers). For the Cursor Agent
-seed workflow only, use **cleanup-zb-agent-docker-agent**.
+seed workflow only, use **cleanup-zb-agent-docker-agent**. For a zenapi PR dependency merge-safety review, pass
+``--prlink=https://github.com/<org>/zenapi/pull/<n>`` — by default this sends a **Cursor Cloud** agent (clone PR repo at
+``refs/pull/<n>/head``, embeds the skill in the prompt); set ``CURSOR_API_KEY`` and run ``npm install`` once under
+zb-orchestrator. Use ``--local`` for the previous behavior (``cursor agent`` on this machine against zb-orchestrator).
 The zb-projects root is always ``~/zb-projects`` for discovery, regardless of where this script lives.
 """
 from __future__ import annotations
@@ -30,9 +33,12 @@ from typing import Any, NoReturn
 
 from zb_orchestrator_launch import (
     CLEANUP_ZB_AGENT_DOCKER_SKILL,
+    ZENAPI_PR_DEPENDENCY_SAFETY_SKILL,
+    build_zenapi_pr_dependency_safety_prompt,
     open_in_cursor,
     resolve_orchestrator_workspace,
     run_cleanup_zb_agent_docker_sh,
+    run_cloud_pr_link_review,
 )
 
 
@@ -619,6 +625,35 @@ def reason_select_projects(
     return out, reasoning
 
 
+_GITHUB_PR_URL_RE = re.compile(
+    r"^https?://(?:www\.)?github\.com/[^/]+/[^/]+/pull/\d+/?(?:files)?/?$",
+    re.IGNORECASE,
+)
+
+
+def github_pull_request_url_ok(url: str) -> bool:
+    """True for ``https://github.com/owner/repo/pull/n`` (optional ``/files``, strip query/fragment)."""
+    base = url.strip().split("#", 1)[0].split("?", 1)[0].rstrip("/")
+    if base.lower().endswith("/files"):
+        base = base[:-len("/files")].rstrip("/")
+    return bool(_GITHUB_PR_URL_RE.match(base))
+
+
+def parse_github_pull_request_url(url: str) -> tuple[str, str, int]:
+    """Return ``owner``, ``repo``, PR number from a GitHub pull request URL."""
+    base = url.strip().split("#", 1)[0].split("?", 1)[0].rstrip("/")
+    if base.lower().endswith("/files"):
+        base = base[:-len("/files")].rstrip("/")
+    m = re.match(
+        r"^https?://(?:www\.)?github\.com/([^/]+)/([^/]+)/pull/(\d+)/?$",
+        base,
+        re.IGNORECASE,
+    )
+    if not m:
+        raise ValueError(f"expected github.com pull URL; got {url!r}")
+    return m.group(1), m.group(2), int(m.group(3))
+
+
 def build_cursor_agent_prompt(
     *,
     intent: str,
@@ -840,6 +875,23 @@ def main() -> None:
             "use ./cleanup-zb-agent-docker-agent."
         ),
     )
+    ap.add_argument(
+        "--prlink",
+        default=None,
+        metavar="URL",
+        help=(
+            "ZenAPI PR dependency merge-safety: default sends a Cursor Cloud agent against the PR repo "
+            "(needs CURSOR_API_KEY + npm install under zb-orchestrator). "
+            "Example: --prlink=https://github.com/zenbusiness/zenapi/pull/6238. Use --local for cursor agent on this machine."
+        ),
+    )
+    ap.add_argument(
+        "--local",
+        action="store_true",
+        help=(
+            "With --prlink only: use `cursor agent` on this machine with zb-orchestrator workspace instead of Cursor Cloud."
+        ),
+    )
     args = ap.parse_args()
     # --noops / ZB_AGENT_NOOPS: no-ops (do not alter seed prompt, env, or runtime behavior).
     # Intended read-only workflow is documented in README and rules.
@@ -862,6 +914,113 @@ def main() -> None:
         print("→ cleanup-zb-agent-docker (zb-orchestrator)", flush=True)
         print(f"  {orchestrator.resolve()}", flush=True)
         sys.exit(run_cleanup_zb_agent_docker_sh(orchestrator))
+
+    if args.prlink is not None:
+        pr_url = str(args.prlink).strip()
+        if not pr_url:
+            print("zb-agent: --prlink requires a non-empty URL", file=sys.stderr)
+            sys.exit(2)
+        if not github_pull_request_url_ok(pr_url):
+            print(
+                f"zb-agent: --prlink must be a github.com pull request URL; got {pr_url!r}",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        orch = resolve_orchestrator_workspace(ZENAPI_PR_DEPENDENCY_SAFETY_SKILL)
+        if orch is None:
+            print(
+                "zb-agent --prlink: need zb-orchestrator with "
+                f"{ZENAPI_PR_DEPENDENCY_SAFETY_SKILL} — expected under "
+                f"~/zb-projects/ai-projects/zb-orchestrator or next to this script.",
+                file=sys.stderr,
+            )
+            sys.exit(7)
+
+        skill_file = orch / ZENAPI_PR_DEPENDENCY_SAFETY_SKILL
+        try:
+            skill_body = skill_file.read_text(encoding="utf-8")
+        except OSError as e:
+            print(f"zb-agent --prlink: cannot read skill file {skill_file}: {e}", file=sys.stderr)
+            sys.exit(7)
+
+        use_local = args.local or os.environ.get("ZB_AGENT_PR_LINK_LOCAL", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+
+        if args.ide_only:
+            open_in_cursor(orch, agent_workspace_dir=None, agent_prompt=None)
+            return
+
+        try:
+            owner, repo, pr_num = parse_github_pull_request_url(pr_url)
+        except ValueError as e:
+            print(f"zb-agent --prlink: {e}", file=sys.stderr)
+            sys.exit(2)
+
+        repo_git_url = f"https://github.com/{owner}/{repo}.git"
+        starting_ref = os.environ.get("ZB_AGENT_PR_STARTING_REF", "").strip()
+        if not starting_ref:
+            starting_ref = f"refs/pull/{pr_num}/head"
+
+        if use_local:
+            pr_agent_prompt: str | None = None
+            if not args.ide_only:
+                pr_agent_prompt = build_zenapi_pr_dependency_safety_prompt(pr_url=pr_url)
+            print("→ zenapi-pr-dependency-safety (local Cursor Agent · zb-orchestrator)", flush=True)
+            print(f"  {orch.resolve()}", flush=True)
+            print(f"  {pr_url}", flush=True)
+            if args.no_open:
+                if pr_agent_prompt:
+                    print()
+                    print("Cursor Agent prompt:")
+                    print(pr_agent_prompt)
+                return
+            open_in_cursor(
+                orch,
+                agent_workspace_dir=orch if pr_agent_prompt else None,
+                agent_prompt=pr_agent_prompt,
+                mcp="github",
+            )
+            return
+
+        pr_cloud_prompt: str | None = None
+        if not args.ide_only:
+            pr_cloud_prompt = build_zenapi_pr_dependency_safety_prompt(
+                pr_url=pr_url,
+                embedded_skill_markdown=skill_body,
+            )
+
+        print("→ zenapi-pr-dependency-safety (Cursor Cloud)", flush=True)
+        print(f"  {repo_git_url} @ {starting_ref}", flush=True)
+        print(f"  {pr_url}", flush=True)
+        if args.no_open:
+            if pr_cloud_prompt:
+                print()
+                print("Agent prompt (not launched):")
+                print(pr_cloud_prompt)
+            return
+
+        if pr_cloud_prompt is None:
+            return
+
+        if not os.environ.get("CURSOR_API_KEY", "").strip():
+            print(
+                "zb-agent --prlink: Cursor Cloud requires CURSOR_API_KEY "
+                "(https://cursor.com/dashboard/integrations ).\n"
+                "  Or run with --local to use `cursor agent` on this machine.",
+                file=sys.stderr,
+            )
+            sys.exit(3)
+
+        rc = run_cloud_pr_link_review(
+            prompt=pr_cloud_prompt,
+            repo_git_url=repo_git_url,
+            starting_ref=starting_ref,
+            orchestrator_root=orch,
+        )
+        sys.exit(rc)
 
     if args.tree:
         print(run_tree(), end="")

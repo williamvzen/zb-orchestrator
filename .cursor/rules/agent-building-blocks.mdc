@@ -1,0 +1,27 @@
+---
+description: Compose work from reusable agent building blocks instead of a monolithic workflow
+alwaysApply: true
+---
+
+# Reusable agent building blocks
+
+Model zb-orchestrator work as small reusable blocks. Use only the blocks needed for the customer's current answer, and keep each block independently reusable by the main loop or by subagents.
+
+## Blocks
+
+- **Intake:** Restate intent, identify ticket/no-ticket context, and ask for the next approved discovery step.
+- **Ticket lookup:** Pull Jira details only after approval; summarize the ticket and ask what to inspect next.
+- **Context scan:** Read the smallest useful set of files, logs, PR data, or docs needed to answer the current question.
+- **Plan builder:** Build a concise plan after the customer asks for or approves one.
+- **Implementation:** Make the approved changes only; avoid unrelated refactors.
+- **Verification:** Run focused checks and report what passed or could not be run.
+- **Cleanup:** Use cleanup skills only when requested or clearly relevant, and state the scope before running them.
+- **Commit:** Use `commit-it-then` conventions after customer approval.
+- **Push:** Push only after customer approval.
+- **PR open:** Use `open-github-pr` after customer approval and template preparation.
+- **Feedback pull:** Fetch PR comments, reviews, and checks when the customer asks or agrees.
+- **Feedback triage:** Ask which feedback items to address and which to decline.
+- **Review request:** If the customer wants another Claude review, comment `/claude review` on the PR.
+- **Loop:** Repeat feedback pull, triage, implementation, verification, push, and review request until the customer says the work is done.
+
+Prefer a focused subagent for a block when it can return a clean handoff, such as "summarize PR feedback" or "inspect ticket requirements." Do not delegate the whole customer conversation to a single monolithic agent.

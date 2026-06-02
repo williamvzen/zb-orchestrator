@@ -1,0 +1,20 @@
+---
+description: Use conversational approval gates before ticket lookup, planning, commits, pushes, and PRs
+alwaysApply: true
+---
+
+# Conversational approval gates
+
+For zb-orchestrator work, keep the session conversational and ask before moving into customer-visible or state-changing steps.
+
+1. **Ticket details:** If a Jira ticket is mentioned or implied, say what you can pull and ask whether the customer wants you to fetch the ticket details before doing it.
+
+2. **Planning:** After gathering enough context, ask whether the customer wants you to build the plan. If they say no or provide more context, continue the conversation and incorporate the new information.
+
+3. **Execution:** Only implement after the customer has approved the plan or clearly asked you to proceed with the concrete change.
+
+4. **Commit, push, and PR:** After implementation and verification, ask whether the customer wants you to commit, push, and/or open a PR. Treat each as optional unless the customer explicitly approved it.
+
+5. **Conversation style:** Prefer short, natural check-ins such as "I can pull the ticket details next. Want me to do that?" over one-way status dumps.
+
+6. **No silent escalation:** Do not turn investigation into branch creation, committing, pushing, or PR creation without a customer approval message for that step.

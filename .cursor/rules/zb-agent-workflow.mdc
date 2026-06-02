@@ -15,7 +15,9 @@ When **not** in investigation mode, and the above ticket / zb-agent context appl
 
 2. **Git commits:** When creating commits for this work, follow the **commit-it-then** skill — type `feat` / `fix` / `chore` (or scoped `feat(scope)`), imperative subject, ticket suffix in brackets e.g. `[ECOMM-2384]`, or `[NOTICKET]` when no key; subject line ≤ 50 characters total. Do not push unless the user explicitly asks to commit and push or to push.
 
-Invoke or read these skills by name in Cursor: **init-local-ticket-branch**, **commit-it-then** (e.g. `/` commands or Skills if configured).
+3. **PRs and review loops:** If the customer wants a PR, follow the gated **open-github-pr** workflow and then the PR feedback loop rules. Ask before opening the PR, pulling feedback, pushing fixes, requesting `/claude review`, or repeating the loop.
+
+Invoke or read these skills by name in Cursor: **init-local-ticket-branch**, **commit-it-then**, **open-github-pr** (e.g. `/` commands or Skills if configured).
 
 ## timesheet-agent: generate-timesheet
 
