@@ -1,0 +1,18 @@
+---
+description: Surface reusable Cursor skills for zb-orchestrator workflows
+alwaysApply: true
+---
+
+# Skill registry
+
+When a customer request matches a skill, read and follow that skill before acting. Mention the relevant option conversationally when it could be useful.
+
+- **`init-local-ticket-branch`:** Use when starting implementation for an `ECOMM-*` ticket or a NOTICKET branch. Follow ticket branch naming and Jira transition rules.
+- **`commit-it-then`:** Use for commits. Keep conventional type, ticket suffix (`[ECOMM-*]` or `[NOTICKET]`), and subject length requirements.
+- **`open-github-pr`:** Use when the customer wants a PR. Read the repository PR template, fill it, and create the PR only after approval.
+- **`clean-up-current-branch`:** Use when the customer wants to stash current work, switch to `main`, and delete the previous local branch. Do not run on `main` or `master`.
+- **`cleanup-zb-agent-docker`:** Use when the customer wants to clear running Docker containers. Warn that it affects every running container on the machine.
+- **`generate-timesheet`:** Use for Jira timesheets, weekly reports, status updates, or "what I worked on" summaries.
+- **`zenapi-pr-dependency-safety`:** Use for zenapi dependency PR safety reviews.
+
+Do not invoke cleanup, branch creation, commits, pushes, or PR creation silently. Ask first unless the current customer message explicitly approves that specific action.

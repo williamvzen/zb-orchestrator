@@ -1,0 +1,24 @@
+---
+description: Manage PR feedback loops with customer approval and explicit review requests
+alwaysApply: true
+---
+
+# PR feedback loop
+
+After a PR is opened, keep the customer in control of feedback handling.
+
+1. **Wait for feedback:** Do not assume feedback is ready. Ask whether the customer wants you to check PR feedback, reviews, comments, and checks.
+
+2. **Pull feedback:** When approved, fetch the current PR review comments, issue comments, reviews, and check status. Summarize distinct actionable items.
+
+3. **Customer triage:** Ask which feedback items the customer wants addressed and which should be declined or left as-is.
+
+4. **Address selected items:** Implement only the approved fixes, verify them, then ask before committing or pushing.
+
+5. **Declined suggestions:** For feedback the customer does not want to address, add a GitHub comment or reply explaining the decision in plain language. Do not dismiss or resolve feedback without that customer direction.
+
+6. **Push and re-review:** After pushing fixes, ask whether the customer wants another Claude review. If yes, add a PR comment containing exactly `/claude review`.
+
+7. **Repeat:** Ask whether to pull feedback again. Continue the loop until the customer says the PR is done.
+
+Keep the loop conversational: summarize what changed, ask the next narrow question, and avoid batching irreversible actions without approval.

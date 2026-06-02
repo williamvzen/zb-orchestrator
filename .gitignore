@@ -33,6 +33,9 @@ venv/
 env/
 .env.venv/
 
+# Node (zb-agent --prlink cloud runner)
+node_modules/
+
 # --- Tool caches (often regenerate binary-ish artifacts) ---
 .mypy_cache/
 .pytest_cache/
